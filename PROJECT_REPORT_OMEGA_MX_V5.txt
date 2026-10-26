@@ -1,0 +1,256 @@
+================================================================================
+LAPORAN PROYEK SISTEM (PROJECT REPORT)
+OMEGA MX – BATCH PRINTING & QUALITY CONTROL SYSTEM
+Versi 5.0 Stable – Industrial Packaging Automation
+================================================================================
+
+DAFTAR ISI
+1. Ringkasan Eksekutif (Executive Summary)
+2. Arsitektur Sistem (System Architecture)
+   2.1 Pola Desain Modular (Decoupled Layered Architecture)
+   2.2 Model Konkurensi & Multi-threading
+   2.3 Topologi Integrasi Hardware Industri
+3. Framework & Teknologi yang Digunakan (Technology Stack)
+4. Fitur-Fitur Utama Sistem (Core Features)
+5. Skenario Masalah Lapangan & Solusi yang Telah Diterapkan
+6. Struktur File & Komponen Source Code
+7. Spesifikasi Deployment & Kompatibilitas Sistem
+
+================================================================================
+1. RINGKASAN EKSEKUTIF (EXECUTIVE SUMMARY)
+================================================================================
+Aplikasi Omega MX - Batch Printing & QC System adalah perangkat lunak antarmuka 
+mesin industri (Human-Machine Interface / HMI) yang dirancang khusus untuk mengelola 
+operasional lini pengemasan benih pertanian (PT Syngenta). Sistem ini bertugas 
+mengotomasi pencetakan stiker label (Thermal Inkjet Omega), inspeksi kualitas kode 
+cetak secara real-time (Dual Keyence Scanner), pemisahan fisik produk cacat melalui 
+aktuator pneumatik (Modbus I/O PLC), serta pemantauan efektivitas lini produksi 
+secara lokal dan melalui web dashboard (Web Analytics).
+
+Pada pembaruan Versi 5.0 Stable, aplikasi ini telah mengalami refaktorisasi arsitektur 
+total dari struktur monolitik menjadi arsitektur modular multi-threading, dilengkapi 
+sistem keamanan tingkat enterprise, ketahanan crash recovery, dan peremajaan antarmuka 
+pengguna modern (Modern Dark Sidebar HMI) yang optimal untuk layar monitor Windows 7/10/11 
+di lingkungan pabrik.
+
+================================================================================
+2. ARSITEKTUR SISTEM (SYSTEM ARCHITECTURE)
+================================================================================
+
+2.1 Pola Desain Modular (Decoupled Layered Architecture)
+--------------------------------------------------------------------------------
+Sistem dibangun dengan memisahkan logika antarmuka (Presentation Layer), orkestrasi 
+bisnis (Application Layer), pengemudi perangkat keras (Hardware Driver Layer), dan 
+persistensi data (Persistence Layer).
+
+[ PRESENTATION LAYER (HMI GUI) ]
+- main.py (OmegaBatchApp)
+- Dark Sidebar Navigation (#1e293b) & Centered Header Status Pill
+- Left Pane: Batch Data Table (Treeview) & File Source Manager
+- Right Pane: Circular Arc Gauge, Conveyor Queue Canvas, Action Buttons
+- Web Dashboard: Port 5022 (Chart.js / Local HTML5 Canvas)
+       |
+       v
+[ APPLICATION CORE ENGINE & CONCURRENCY LAYER ]
+- Independent Printing Worker Thread
+- Conveyor In-Transit Queue Engine (collections.deque)
+- Dual-Scanner Verification & QC Matcher Engine
+- Pneumatic Pusher Actuator Delay & Pulse Logic
+- Crash-Resilient Atomic Checkpoint Engine
+       |
+       v
+[ SERVICE DRIVERS & PERSISTENCE MODULES ]
+- printer_omega.py   : Persistent Socket Driver + Buffer Flush (CLR/RESET)
+- modbus_io.py       : Modbus TCP / RTU Controller with Per-Coil Mutex Locks
+- label_renderer.py  : PIL Graphic Compositor & Dynamic 2D QR Code Generator
+- data_manager.py    : Atomic JSON Checkpoint, CSV Master Log, Excel Reporter
+- auth_manager.py    : PBKDF2-HMAC-SHA256 Encryption & Anti-Brute-Force Guard
+- analytics_server.py: Embedded Flask Server (Port 5022)
+       |
+       v
+[ PHYSICAL HARDWARE LAYER ]
+- Thermal Inkjet Omega Printer (TCP/IP Port 6007)
+- Keyence SR-1000 Dual Scanners (TCP/IP Port 9004) - Sisi A & B
+- PLC / Modbus I/O Module (Port 502 / RS485 Serial)
+- Photoelectric Conveyor Sensors (DI)
+- Pneumatic Rejector Solenoid Valve (DO 0)
+- Industrial Signal Tower Lamp & Buzzer (DO 1 - 4)
+
+
+2.2 Model Konkurensi & Multi-threading
+--------------------------------------------------------------------------------
+Untuk menjamin GUI Tkinter tetap responsif 60 FPS tanpa freeze saat berkomunikasi 
+dengan perangkat keras berlatensi tinggi, arsitektur menggunakan Thread Mandiri:
+
+1. Main GUI Thread (Tkinter Event Loop):
+   Menangani render grafis, canvas gauges, interaksi operator, dan pembaruan elemen 
+   antarmuka via metode thread-safe (root.after()).
+
+2. Batch Printing Worker Thread:
+   Mengontrol pengiriman data cetak per item ke printer dengan jeda waktu terkontrol, 
+   memasukkan kardus ke antrean konveyor (waiting_queue), dan mengatur penundaan inter-box.
+
+3. Scanner 1 TCP Listener Thread:
+   Membaca stream socket dari Keyence Scanner 1 secara kontinu tanpa memblokir thread lain.
+
+4. Scanner 2 TCP Listener Thread:
+   Membaca stream socket dari Keyence Scanner 2 untuk kardus dengan label dua sisi 
+   (Sisi A & B).
+
+5. Modbus I/O Monitoring & Actuator Thread:
+   Membaca sinyal sensor optik (DI) dan memicu aktivasi solenoid silinder dorong (DO) 
+   melalui timer delay non-blocking.
+
+6. Embedded Web Server Thread (Daemon):
+   Menjalankan Flask microservice di latar belakang pada port 5022.
+
+
+2.3 Topologi Integrasi Hardware Industri
+--------------------------------------------------------------------------------
+Perangkat           Antarmuka/Protokol    Port/Baudrate       Fungsi Utama
+--------------------------------------------------------------------------------
+Printer TIJ Omega   TCP/IP Socket (LAN)   192.168.1.100:6007  Kirim data variabel & trigger cetak
+Keyence Scanner 1   TCP/IP Socket (LAN)   192.168.1.99:9004   Verifikasi barcode/QR sisi kiri (A)
+Keyence Scanner 2   TCP/IP Socket (LAN)   192.168.1.98:9004   Verifikasi barcode/QR sisi kanan (B)
+Modbus Controller   Modbus TCP / RTU      Port 502 / COM1     Baca sensor (DI) & trigger pusher (DO 0)
+Tower Lamp & Buzzer Digital Output Modbus DO 1, 2, 3, 4       Indikator status mesin & alarm interlock
+
+================================================================================
+3. FRAMEWORK & TEKNOLOGI YANG DIGUNAKAN (TECHNOLOGY STACK)
+================================================================================
+- Bahasa Pemrograman: Python 3.10+ (Kompatibel arsitektur Windows x64).
+- GUI Engine: Tkinter & ttk dengan tema native Windows 7 (vista / winnative) 
+  dan tipografi Segoe UI. Kanvas vektor kustom untuk Arc Gauge & Visualisasi Konveyor.
+- Komunikasi Jaringan & Serial:
+  * socket bawaan Python (SO_KEEPALIVE & TCP_NODELAY) ke Printer Omega & Keyence.
+  * pymodbus (>=3.8.0): Komunikasi Modbus TCP & RTU secara persisten.
+  * pyserial (>=3.5): Komunikasi serial RS-232/RS-485.
+- Pengolahan & Persistensi Data:
+  * pandas (>=2.2.0): Manipulasi dan agregasi dataset batch produksi.
+  * openpyxl (>=3.1.2): Ekspor laporan Excel (.xlsx) dengan styling warna status.
+  * Format CSV: Master log (history_summary_log.csv) & indeks kupon (printed_coupons_index.csv).
+  * Atomic JSON: File config.json dan active_batch_checkpoint.json.
+- Visualisasi & Desain Label:
+  * Pillow / PIL (>=10.0.0): Image rendering, layout font, penempatan logo.
+  * qrcode (>=7.4.2): Pembuatan matriks barcode 2D QR Code dinamis.
+- Keamanan & Otorisasi:
+  * hashlib.pbkdf2_hmac (100.000 iterasi SHA-256) dengan salt kriptografis per-user.
+  * hmac.compare_digest: Validasi password constant-time (Anti-Timing-Attack).
+  * Lockout otomatis 5 menit jika gagal 5 kali berturut-turut.
+- Embedded Analytics:
+  * Flask (>=3.0.0): Web server lokal mandiri pada port 5022.
+  * Chart.js: Grafik visual HTML5 Canvas untuk OEE & Yield/NG Rate.
+- Packaging & Installer:
+  * PyInstaller (>=6.0.0): Kompilasi ke standalone binary (.exe).
+  * Inno Setup: Installer Windows dengan integrasi shortcut & proteksi serial number.
+
+================================================================================
+4. FITUR-FITUR UTAMA SISTEM (CORE FEATURES)
+================================================================================
+1. Smart Auto-Start & Clear Buffer Engine:
+   Pembersihan buffer otomatis (CLR & RESET) saat printer terhubung.
+2. Dual-Scanner Multi-Tier QC Judgement:
+   Inspeksi satu scanner (single-side) maupun dua scanner (dual-side Sisi A & B).
+3. Pneumatic Rejection Synchronization:
+   Kalkulasi waktu tempuh konveyor (pusher_delay ms) dan pulsa dorong silinder 
+   (pusher_pulse ms) untuk menolak kardus NG secara presisi.
+4. Crash Recovery & Checkpoint Management:
+   Penyimpanan atomik status batch real-time. Dialog pemulihan otomatis saat aplikasi 
+   dibuka kembali pasca mati listrik.
+5. Automated Batch Reprinting Cycle:
+   Pencetakan ulang khusus kardus cacat (NG) di akhir batch tanpa merusak master data.
+6. Laporan Produksi Terstruktur:
+   Penyimpanan arsip otomatis per folder: history/YYYY/MM - NamaBulan/ dalam format 
+   Excel (.xlsx) dan master CSV.
+7. Pencegahan Kupon Duplikat:
+   Pengecekan otomatis ke indeks kupon historis untuk mencegah cetak ganda.
+8. Interlock Alarm & Cascade NG Stop:
+   Otomatis menghentikan mesin jika terjadi 3x NG berurutan, menyalakan tower lamp merah & buzzer.
+9. Modern Combined HMI Layout (Redesain UI V5):
+   Sidebar vertikal modern (#1e293b), header status pill, layout 2 kolom (Tabel Data di kiri, 
+   Arc Gauge & Konveyor di kanan), ukuran jendela responsif.
+10. Web Analytics Dashboard Terpadu:
+    Akses via browser http://localhost:5022 untuk pemantauan throughput, yield rate, dan rasio NG.
+
+================================================================================
+5. SKENARIO MASALAH LAPANGAN & SOLUSI YANG TELAH DITERAPKAN
+================================================================================
+
+1. UI Freezing / Macet saat Hardware Timeout
+   - Masalah: Kabel LAN lepas atau PLC lambat merespons menyebabkan UI Windows "Not Responding".
+   - Solusi: Seluruh komunikasi socket/serial dipindahkan ke worker thread mandiri dengan 
+     timeout 2.5 detik. Pembaruan UI dilakukan secara asinkron via root.after().
+
+2. Kehilangan Data saat Listrik Padam Tiba-Tiba
+   - Masalah: Listrik padam di tengah batch mengakibatkan status kardus hilang dan kupon terduplikasi.
+   - Solusi: Atomic JSON Checkpointing (active_batch_checkpoint.json dengan temp file replace). 
+     Dialog resume otomatis saat aplikasi dibuka kembali.
+
+3. Reprint Cycle Stalling (Batch Tergantung di Siklus 2)
+   - Masalah: Saat mencetak ulang 1 kardus NG dari 10 kardus awal, sistem menunggu 10 kardus.
+   - Solusi: Dinamisasi target penyelesaian batch: jika print_cycle > 1, nilai 
+     expected_total_judgments = len(items_to_print).
+
+4. Konflik Akses Modbus (Deadlock & Race Condition)
+   - Masalah: Thread sensor tabrakan dengan thread aktuator pusher dan tower lamp.
+   - Solusi: Per-Coil Mutex Lock (_coil_locks) pada modbus_io.py untuk menjamin pembacaan/penulisan 
+     thread-safe tanpa deadlock.
+
+5. Desinkronisasi Pembacaan Dual Scanner
+   - Masalah: Scanner 1 dan Scanner 2 membaca pada selisih waktu beberapa ratus milidetik.
+   - Solusi: Sliding Time-Window Buffer (toleransi dual_scan_timeout, default 2.0 detik) untuk 
+     mencocokkan pembacaan kedua sisi kardus yang sama.
+
+6. Teks Angka Rusak / Leading Zeros Hilang
+   - Masalah: Kode kupon berawalan angka nol (001245) terpotong menjadi 1245.
+   - Solusi: Penyimpanan Teks Murni (table_items_data) sebagai string mentah sebelum masuk ke Treeview.
+
+7. Antarmuka Usang dan Tidak Ergonomis
+   - Masalah: Tab atas sempit, border biru mengganggu, dan footer terpotong taskbar Windows 7.
+   - Solusi: Redesain Mockup Gabungan (Dark Sidebar #1e293b, Status Pill Header, Arc Gauge & Conveyor 
+     strip, kalkulasi ukuran window responsif).
+
+8. Riwayat Cetak Tidak Sinkron pada Mode Simulasi
+   - Masalah: Tabel riwayat cetak kosong setelah batch simulasi selesai.
+   - Solusi: Auto-Refresh Navigation Hook saat tab Riwayat Cetak diklik, serta fitur auto_judge_sim 
+     untuk pengujian otomatis tanpa klik manual.
+
+================================================================================
+6. STRUKTUR FILE & KOMPONEN SOURCE CODE
+================================================================================
+f:\ProgramPrintSygenta\project-printer-omega - W7
+|-- main.py                  # Core Engine, Orchestration, HMI GUI Tkinter
+|-- printer_omega.py         # Socket Driver TIJ Omega (Persistent TCP)
+|-- modbus_io.py             # Controller Modbus TCP/RTU dengan Mutex Per-Coil
+|-- data_manager.py          # Atomic Checkpoint, CSV Master Log, Excel Reporter
+|-- label_renderer.py        # Rendering Label, Logo Compositor, & QR Code
+|-- auth_manager.py          # Keamanan: PBKDF2-HMAC-SHA256 & Brute-Force Guard
+|-- login_dialog.py          # UI Dialog Login Operator/Admin & Ubah Sandi
+|-- analytics_server.py      # Embedded Web Service (Flask + Chart.js)
+|-- assets/                  # Gambar, Ikon, Logo Resmi, & Library JavaScript
+|-- data/                    # Konfigurasi config.json & users.json
+|-- history/                 # Laporan Excel, master CSV log, & checkpoints
+|-- logs/                    # Log teks operasional harian (Auto-cleanup > 30 hari)
+|-- Jalankan_Omega_MX.bat    # Launcher produksi cepat
+|-- Omega_MX_System.spec     # Konfigurasi build PyInstaller
+|-- inno setup.iss           # Skrip installer Windows resmi
+
+================================================================================
+7. SPESIFIKASI DEPLOYMENT & KOMPATIBILITAS SISTEM
+================================================================================
+- Sistem Operasi Target:
+  * Windows 7 Professional / Ultimate (SP1 x64) - Fully Tested & Supported.
+  * Windows 10 & Windows 11 (64-bit).
+- Kebutuhan Minimum Perangkat Keras:
+  * Processor: Intel Core i3 / setara.
+  * RAM: 4 GB (Penggunaan RAM aplikasi: ~65-110 MB).
+  * Storage: Tersedia minimal 500 MB.
+  * Network: 1 Port Ethernet LAN (atau USB-to-RS485 Serial Converter).
+- Prosedur Menjalankan Aplikasi:
+  * Mode Pengembang: Klik ganda cmd shortcut.bat -> python main.py
+  * Mode Produksi Pabrik: Klik ganda Jalankan_Omega_MX.bat
+
+================================================================================
+Laporan ini mendokumentasikan seluruh arsitektur, teknologi, fitur, dan riwayat
+perbaikan teknis sistem hingga implementasi stabil Versi 5.0.
+================================================================================

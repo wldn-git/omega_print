@@ -1,0 +1,23 @@
+{
+    "printer_ip": "192.168.1.101",
+    "printer_port": "6008",
+    "com_port": "",
+    "baudrate": "9600",
+    "scanner1_ip": "192.168.1.99",
+    "scanner1_port": "9004",
+    "scanner2_ip": "192.168.1.98",
+    "scanner2_port": "9004",
+    "dual_scan_timeout": "2000",
+    "pusher_delay": "2000",
+    "pusher_pulse": "500",
+    "modbus_mode": "TCP",
+    "modbus_ip": "127.0.0.1",
+    "modbus_port": "502",
+    "modbus_com": "COM1",
+    "modbus_baud": "9600",
+    "modbus_databits": "8",
+    "modbus_parity": "Even",
+    "modbus_stopbits": "1",
+    "modbus_serial_mode": "RTU",
+    "slave_id": 2
+}

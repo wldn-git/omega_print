@@ -1,0 +1,47 @@
+========================================================================
+END USER LICENSE AGREEMENT (EULA)
+OMEGA MX - BATCH PRINTING & QC SYSTEM
+========================================================================
+
+PENTING - HARAP DIBACA DENGAN SEKSAMA:
+Perjanjian Lisensi Pengguna Akhir ("EULA") ini adalah perjanjian sah 
+antara Anda (baik sebagai individu maupun entitas bisnis) dengan 
+PT SMARTEK SISTEM INOVASI untuk perangkat lunak Omega MX System ("Perangkat Lunak").
+
+Dengan menginstal, menyalin, atau menggunakan Perangkat Lunak ini, 
+Anda setuju untuk terikat oleh syarat-syarat EULA ini.
+
+1. PEMBERIAN LISENSI
+PT SMARTEK SISTEM INOVASI memberi Anda hak non-eksklusif, tidak dapat 
+dialihkan, dan terbatas untuk menggunakan Perangkat Lunak ini semata-mata 
+untuk keperluan operasional mesin Omega MX dan integrasi sistem QC 
+di fasilitas produksi Anda.
+
+2. BATASAN PENGGUNAAN
+Anda TIDAK diperkenankan untuk:
+a. Memodifikasi, merekayasa balik (reverse engineer), mendekompilasi, 
+   atau membongkar Perangkat Lunak ini.
+b. Menyewakan, meminjamkan, menjual, atau mendistribusikan salinan 
+   Perangkat Lunak beserta Serial Key kepada pihak ketiga tanpa izin 
+   tertulis dari PT SMARTEK SISTEM INOVASI.
+c. Menghapus atau mengubah pemberitahuan hak cipta apa pun di dalam 
+   Perangkat Lunak.
+
+3. HAK KEKAYAAN INTELEKTUAL
+Semua hak cipta, hak paten, dan kekayaan intelektual lainnya dalam 
+Perangkat Lunak ini adalah milik PT SMARTEK SISTEM INOVASI. EULA ini 
+tidak memberikan Anda hak kepemilikan apa pun atas Perangkat Lunak.
+
+4. PEMBATASAN TANGGUNG JAWAB
+Perangkat Lunak ini disediakan "SEBAGAIMANA ADANYA" (As-Is). 
+PT SMARTEK SISTEM INOVASI tidak bertanggung jawab atas segala kerugian 
+langsung maupun tidak langsung, termasuk namun tidak terbatas pada 
+berhentinya jalur produksi (downtime), kerusakan perangkat keras (printer/scanner), 
+atau hilangnya data akibat kesalahan operasi atau kegagalan sistem.
+
+5. PENGHENTIAN
+Lisensi ini berlaku hingga diakhiri. Lisensi Anda akan berakhir otomatis 
+jika Anda melanggar ketentuan EULA ini.
+
+© 2026 PT SMARTEK SISTEM INOVASI. Hak Cipta Dilindungi Undang-Undang.
+Dikembangkan oleh: WLDN

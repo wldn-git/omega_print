@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# PyInstaller / Distribution
+build/
+dist/
+Output/
+*.spec.bak
+
+# Log and data files (Local machine specific)
+logs/
+history/*/
+history/*.csv
+history/**/*.xlsx
+history/**/~$*
+history/checkpoints/
+data/users.json
+
+# OS and IDE specific
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
