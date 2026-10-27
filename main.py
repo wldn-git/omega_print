@@ -2481,7 +2481,18 @@ class OmegaBatchApp:
                 "scanner2": s2_str,
                 "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-            threading.Thread(target=self.api_manager.send_box_qc, args=(box_payload,), daemon=True).start()
+            b_url = self.api_base_url.get().strip() if hasattr(self, 'api_base_url') else None
+            ep = self.api_endpoint_submit_box.get().strip() if hasattr(self, 'api_endpoint_submit_box') else None
+            key = self.api_key.get().strip() if hasattr(self, 'api_key') else None
+            try:
+                tout = float(self.api_timeout.get().strip())
+            except Exception:
+                tout = 3.0
+            threading.Thread(
+                target=self.api_manager.send_box_qc,
+                args=(box_payload, b_url, ep, key, tout),
+                daemon=True
+            ).start()
         
         # JIKA JUMLAH SCAN == JUMLAH DATA YANG DIKIRIM (LOAD)
         if self.current_judgments >= self.expected_total_judgments:
@@ -2672,8 +2683,21 @@ class OmegaBatchApp:
                             "operator": self.current_user.get("username", "Admin") if hasattr(self, 'current_user') and self.current_user else "Admin",
                             "records_count": len(records)
                         }
+                        b_url = self.api_base_url.get().strip() if hasattr(self, 'api_base_url') else None
+                        ep = self.api_endpoint_submit_batch.get().strip() if hasattr(self, 'api_endpoint_submit_batch') else None
+                        key = self.api_key.get().strip() if hasattr(self, 'api_key') else None
+                        try:
+                            tout = float(self.api_timeout.get().strip())
+                        except Exception:
+                            tout = 5.0
                         def _send_batch_api():
-                            ok, res = self.api_manager.send_batch_summary(batch_summary)
+                            ok, res = self.api_manager.send_batch_summary(
+                                batch_summary,
+                                base_url=b_url,
+                                endpoint=ep,
+                                api_key=key,
+                                timeout=tout
+                            )
                             if ok:
                                 self.log_msg(f"[API] Sukses sinkronisasi ringkasan batch ke Sistem Utama.")
                             else:
