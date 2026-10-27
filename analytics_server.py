@@ -96,62 +96,61 @@ class AnalyticsServer:
     <script src="/assets/chart.umd.js"></script>
     <style>
         :root {
-            --primary: #0f172a;
-            --primary-light: #1e293b;
-            --accent: #2563eb;
-            --accent-hover: #1d4ed8;
-            --success: #16a34a;
-            --success-bg: #f0fdf4;
-            --success-border: #86efac;
-            --danger: #dc2626;
-            --danger-bg: #fef2f2;
-            --danger-border: #fca5a5;
-            --warning: #d97706;
-            --warning-bg: #fef3c7;
-            --warning-border: #fde68a;
-            --bg: #f1f5f9;
-            --card-bg: #ffffff;
-            --text-main: #0f172a;
+            --bg: #f4f6f8;
+            --surface: #ffffff;
+            --border: #dcdfe4;
+            --border-light: #eef1f5;
+            --text-title: #0f172a;
+            --text-body: #334155;
             --text-muted: #64748b;
-            --border-subtle: #e2e8f0;
+            --primary: #1e3a8a;
+            --accent-blue: #0284c7;
+            --ok-color: #16a34a;
+            --ok-bg: #f0fdf4;
+            --ok-border: #bbf7d0;
+            --ng-color: #dc2626;
+            --ng-bg: #fef2f2;
+            --ng-border: #fecaca;
+            --transit-bg: #fef9c3;
+            --transit-border: #fde047;
+            --transit-text: #854d0e;
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
         body {
             background-color: var(--bg);
-            color: var(--text-main);
-            padding-bottom: 50px;
+            color: var(--text-body);
+            padding-bottom: 40px;
         }
 
         /* Top Navbar */
         .navbar {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            background-color: #0f172a;
             color: #ffffff;
-            padding: 14px 28px;
+            padding: 12px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: 1px solid #1e293b;
         }
 
         .nav-brand {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
 
         .brand-icon {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             background: #2563eb;
-            border-radius: 8px;
+            border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -159,542 +158,488 @@ class AnalyticsServer:
         }
 
         .nav-brand h1 {
-            font-size: 1.15rem;
+            font-size: 1.05rem;
             font-weight: 700;
-            letter-spacing: 0.5px;
-            color: #f8fafc;
+            letter-spacing: 0.4px;
+            color: #ffffff;
         }
 
-        .nav-brand .badge-dept {
-            background: rgba(37, 99, 235, 0.25);
-            color: #93c5fd;
-            font-size: 0.72rem;
+        .badge-dept {
+            background: #1e293b;
+            color: #94a3b8;
+            font-size: 0.7rem;
             font-weight: 700;
-            padding: 3px 8px;
+            padding: 2px 8px;
             border-radius: 4px;
-            border: 1px solid rgba(147, 197, 253, 0.3);
+            border: 1px solid #334155;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 0.5px;
         }
 
         .nav-right {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 14px;
         }
 
         .clock-display {
-            font-size: 0.85rem;
-            color: #94a3b8;
+            font-size: 0.82rem;
+            color: #cbd5e1;
             font-family: 'Consolas', monospace;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 4px 10px;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: #1e293b;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #334155;
         }
 
         .badge-live {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(22, 163, 74, 0.2);
+            background: #1e293b;
             color: #4ade80;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.72rem;
             font-weight: 700;
-            border: 1px solid rgba(74, 222, 128, 0.4);
-            letter-spacing: 0.5px;
+            border: 1px solid #334155;
+            letter-spacing: 0.4px;
         }
 
-        .dot {
-            width: 8px;
-            height: 8px;
+        .dot-status {
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
             display: inline-block;
         }
 
         .dot-green { background-color: #22c55e; }
+        .dot-gray  { background-color: #94a3b8; }
         .dot-amber { background-color: #f59e0b; }
         .dot-red   { background-color: #ef4444; }
-        .dot-gray  { background-color: #94a3b8; }
-
-        .dot-pulse {
-            animation: pulse-dot 1.5s infinite ease-in-out;
-        }
-
-        @keyframes pulse-dot {
-            0% { transform: scale(0.95); opacity: 0.8; }
-            50% { transform: scale(1.3); opacity: 1; }
-            100% { transform: scale(0.95); opacity: 0.8; }
-        }
 
         .container {
-            max-width: 1280px;
-            margin: 24px auto;
-            padding: 0 20px;
+            max-width: 1240px;
+            margin: 20px auto;
+            padding: 0 16px;
         }
 
-        /* Section Headings */
-        .section-header {
+        /* Clean Section Title */
+        .section-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+
+        /* 1. KONDISI REAL-TIME MESIN (CLEAN & SIMPLE) */
+        .status-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 16px 20px;
+            margin-bottom: 18px;
+        }
+
+        .status-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-light);
             margin-bottom: 14px;
         }
 
-        .section-title {
-            font-size: 0.95rem;
+        .status-header-title {
+            font-size: 0.82rem;
             font-weight: 700;
-            color: #334155;
             text-transform: uppercase;
-            letter-spacing: 0.6px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .section-title svg {
-            width: 18px;
-            height: 18px;
-            stroke: #2563eb;
-        }
-
-        .section-badge {
-            font-size: 0.75rem;
+            letter-spacing: 0.5px;
             color: var(--text-muted);
-            background: #e2e8f0;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-weight: 600;
         }
 
-        /* 1. STATUS LINE PRODUKSI REAL-TIME */
-        .live-status-card {
-            background: #ffffff;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-            border: 1px solid var(--border-subtle);
-            margin-bottom: 20px;
-        }
-
-        .live-status-banner {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 14px 18px;
-            border-radius: 10px;
-            margin-bottom: 16px;
-            transition: all 0.3s ease;
-        }
-
-        /* State Banner Themes */
-        .banner-running {
-            background: linear-gradient(90deg, #ecfdf5 0%, #f0fdf4 100%);
-            border: 1px solid #a7f3d0;
-        }
-        .banner-standby {
-            background: linear-gradient(90deg, #f0f9ff 0%, #f8fafc 100%);
-            border: 1px solid #bae6fd;
-        }
-        .banner-paused {
-            background: linear-gradient(90deg, #fffbeb 0%, #fefce8 100%);
-            border: 1px solid #fde68a;
-        }
-        .banner-stopped {
-            background: linear-gradient(90deg, #fef2f2 0%, #fff1f2 100%);
-            border: 1px solid #fca5a5;
-        }
-        .banner-offline {
-            background: #f1f5f9;
-            border: 1px solid #cbd5e1;
-        }
-
-        .status-pill-large {
+        .status-pill {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            font-size: 1.1rem;
-            font-weight: 800;
+            gap: 8px;
+            padding: 4px 14px;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            font-weight: 700;
             letter-spacing: 0.5px;
+            border: 1px solid transparent;
         }
 
-        .pill-running { color: #047857; }
-        .pill-standby { color: #0369a1; }
-        .pill-paused  { color: #b45309; }
-        .pill-stopped { color: #b91c1c; }
-        .pill-offline { color: #475569; }
+        .pill-running {
+            background-color: #f0fdf4;
+            color: #166534;
+            border-color: #bbf7d0;
+        }
+        .pill-standby {
+            background-color: #f1f5f9;
+            color: #334155;
+            border-color: #cbd5e1;
+        }
+        .pill-paused {
+            background-color: #fefce8;
+            color: #854d0e;
+            border-color: #fef08a;
+        }
+        .pill-stopped {
+            background-color: #fef2f2;
+            color: #991b1b;
+            border-color: #fecaca;
+        }
+        .pill-offline {
+            background-color: #f8fafc;
+            color: #64748b;
+            border-color: #e2e8f0;
+        }
 
-        .live-meta-grid {
+        .meta-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(5, 1fr);
             gap: 16px;
-            padding-top: 4px;
-            border-top: 1px solid #f1f5f9;
+            margin-bottom: 14px;
         }
 
-        .meta-item {
+        @media (max-width: 900px) {
+            .meta-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .meta-cell {
             display: flex;
             flex-direction: column;
             gap: 3px;
         }
 
-        .meta-label {
-            font-size: 0.75rem;
-            font-weight: 600;
+        .meta-cell-label {
+            font-size: 0.7rem;
+            font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
+            letter-spacing: 0.4px;
         }
 
-        .meta-value {
-            font-size: 0.95rem;
+        .meta-cell-val {
+            font-size: 0.9rem;
             font-weight: 700;
-            color: var(--text-main);
+            color: var(--text-title);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        /* Hardware Indicators Grid */
-        .hw-strip {
+        .hw-status-row {
+            padding-top: 10px;
+            border-top: 1px solid var(--border-light);
             display: flex;
             flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 14px;
-            padding-top: 14px;
-            border-top: 1px dashed var(--border-subtle);
+            gap: 18px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
         }
 
-        .hw-badge {
+        .hw-item {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: #334155;
         }
 
-        /* 2. GRID CARD HMI (PROGRES BATCH, TOTAL OK, TOTAL NG, ANTREAN KONVEYOR) */
+        .hw-val-online {
+            font-weight: 700;
+            color: #166534;
+        }
+        .hw-val-offline {
+            font-weight: 700;
+            color: #64748b;
+        }
+
+        /* 2. THREE HMI CARDS (IDENTICAL TO HMI SCREENSHOT) */
         .hmi-cards-grid {
             display: grid;
-            grid-template-columns: 1.3fr 1.1fr 1.6fr;
-            gap: 20px;
-            margin-bottom: 24px;
+            grid-template-columns: 1.2fr 1fr 1.3fr;
+            gap: 16px;
+            margin-bottom: 20px;
         }
 
-        @media (max-width: 1024px) {
-            .hmi-cards-grid {
-                grid-template-columns: 1fr;
-            }
+        @media (max-width: 950px) {
+            .hmi-cards-grid { grid-template-columns: 1fr; }
         }
 
-        /* Card Progres Batch */
-        .hmi-card {
-            background: #ffffff;
-            border-radius: 12px;
-            padding: 18px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-            border: 1px solid var(--border-subtle);
+        .hmi-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
         }
 
-        .hmi-card-title {
+        .hmi-header {
             font-size: 0.88rem;
             font-weight: 700;
-            color: #1e293b;
+            color: var(--text-title);
             margin-bottom: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .gauge-container {
+        /* Card 1: Progres Batch */
+        .gauge-layout {
             display: flex;
             align-items: center;
             justify-content: space-around;
-            padding: 8px 0;
+            padding: 4px 0 8px 0;
             gap: 12px;
         }
 
         .gauge-svg-wrap {
             position: relative;
-            width: 170px;
-            height: 90px;
+            width: 160px;
+            height: 85px;
             overflow: hidden;
             flex-shrink: 0;
         }
 
         .gauge-percent-text {
             position: absolute;
-            bottom: 4px;
+            bottom: 2px;
             left: 0;
             right: 0;
             text-align: center;
-            font-size: 1.45rem;
+            font-size: 1.4rem;
             font-weight: 800;
-            color: #1e293b;
+            color: var(--text-title);
         }
 
         .gauge-subtext {
             font-size: 0.65rem;
             font-weight: 700;
-            color: #64748b;
+            color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 0.6px;
+            letter-spacing: 0.5px;
             display: block;
-            margin-top: -2px;
+            margin-top: -3px;
         }
 
-        .gauge-right-info {
+        .gauge-info {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
             text-align: center;
         }
 
-        .gauge-counter-big {
-            font-size: 1.55rem;
+        .gauge-counts {
+            font-size: 1.5rem;
             font-weight: 800;
-            color: #0f172a;
+            color: var(--text-title);
             line-height: 1.1;
         }
 
-        .gauge-count-label {
-            font-size: 0.8rem;
-            color: #64748b;
-            font-weight: 600;
-            margin-top: 4px;
+        .gauge-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-top: 3px;
         }
 
         .gauge-sisa {
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: 800;
-            color: #0284c7;
-            margin-top: 8px;
+            color: #0e7490;
+            margin-top: 6px;
         }
 
-        /* Card Counters OK / NG (Side-by-side) */
-        .counters-split {
+        /* Card 2: Counters OK & NG */
+        .ok-ng-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            gap: 10px;
             height: 100%;
         }
 
-        .counter-box {
-            border-radius: 10px;
-            padding: 14px 12px;
+        .counter-card {
+            border-radius: 4px;
+            padding: 12px 8px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
-            border: 1px solid transparent;
-            transition: transform 0.2s;
         }
 
-        .counter-box:hover {
-            transform: translateY(-2px);
+        .counter-card-ok {
+            background-color: var(--ok-bg);
+            border: 1px solid var(--ok-border);
         }
 
-        .box-ok {
-            background-color: var(--success-bg);
-            border-color: var(--success-border);
+        .counter-card-ng {
+            background-color: var(--ng-bg);
+            border: 1px solid var(--ng-border);
         }
 
-        .box-ng {
-            background-color: var(--danger-bg);
-            border-color: var(--danger-border);
-        }
-
-        .counter-box-title {
+        .counter-card-title {
             font-size: 0.78rem;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 6px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            letter-spacing: 0.4px;
+            margin-bottom: 4px;
         }
 
-        .box-ok .counter-box-title { color: #15803d; }
-        .box-ng .counter-box-title { color: #b91c1c; }
+        .counter-card-ok .counter-card-title { color: #166534; }
+        .counter-card-ng .counter-card-title { color: #991b1b; }
 
-        .counter-number {
-            font-size: 2.5rem;
+        .counter-card-num {
+            font-size: 2.3rem;
             font-weight: 800;
             line-height: 1;
         }
 
-        .box-ok .counter-number { color: #16a34a; }
-        .box-ng .counter-number { color: #dc2626; }
+        .counter-card-ok .counter-card-num { color: #16a34a; }
+        .counter-card-ng .counter-card-num { color: #dc2626; }
 
-        .counter-ratio {
-            font-size: 0.72rem;
-            margin-top: 6px;
-            font-weight: 600;
-            color: #64748b;
-        }
-
-        /* Card Antrean Konveyor In-Transit */
-        .conveyor-box {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            height: 100%;
-        }
-
-        .badge-transit {
-            background-color: var(--warning-bg);
-            color: #b45309;
-            font-size: 0.78rem;
+        /* Card 3: Antrean Konveyor */
+        .badge-transit-clean {
+            background-color: var(--transit-bg);
+            border: 1px solid var(--transit-border);
+            color: var(--transit-text);
+            font-size: 0.75rem;
             font-weight: 800;
-            padding: 3px 10px;
-            border-radius: 6px;
-            border: 1px solid var(--warning-border);
+            padding: 3px 8px;
+            border-radius: 3px;
         }
 
-        .conveyor-track {
+        .conveyor-diagram {
             position: relative;
-            background: #f8fafc;
-            border: 1px solid var(--border-subtle);
-            border-radius: 10px;
-            padding: 24px 16px;
-            margin: 12px 0;
+            background: #fafbfc;
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            padding: 22px 14px;
+            margin-top: 6px;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
-        .conveyor-line {
+        .conveyor-track-line {
             position: absolute;
-            left: 30px;
-            right: 30px;
-            height: 4px;
-            background: #cbd5e1;
+            left: 28px;
+            right: 28px;
+            height: 3px;
+            background: #94a3b8;
             z-index: 1;
         }
 
-        .conveyor-node {
+        .conveyor-point {
             position: relative;
             z-index: 2;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
         }
 
-        .node-circle {
-            width: 22px;
-            height: 22px;
+        .node-circle-clean {
+            width: 18px;
+            height: 18px;
             background: #ffffff;
             border: 3px solid #64748b;
             border-radius: 50%;
-            transition: all 0.3s;
+            transition: all 0.2s ease;
         }
 
-        .node-circle.active {
-            border-color: #2563eb;
-            background: #dbeafe;
-            box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+        .node-circle-clean.active {
+            border-color: #0284c7;
+            background: #e0f2fe;
         }
 
-        .node-label {
-            font-size: 0.75rem;
+        .node-name {
+            font-size: 0.72rem;
             font-weight: 700;
             color: #475569;
             white-space: nowrap;
         }
 
-        .transit-status-msg {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            text-align: center;
-            background: #f8fafc;
-            padding: 6px 12px;
-            border-radius: 6px;
-            border: 1px solid #edf2f7;
-            font-weight: 600;
-        }
-
-        /* 3. REKAPITULASI & TREN HISTORIS */
-        .stats-grid {
+        /* 3. REKAPITULASI & CHARTS */
+        .rekap-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 20px;
-            margin-bottom: 24px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 18px;
         }
 
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 22px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-            border: 1px solid var(--border-subtle);
+        @media (max-width: 800px) {
+            .rekap-grid { grid-template-columns: 1fr; }
         }
 
-        .stat-title {
-            font-size: 0.82rem;
+        .rekap-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 18px 20px;
+        }
+
+        .rekap-label {
+            font-size: 0.75rem;
             font-weight: 700;
-            text-transform: uppercase;
             color: var(--text-muted);
-            margin-bottom: 8px;
-            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 6px;
         }
 
-        .stat-value {
-            font-size: 2.2rem;
+        .rekap-val {
+            font-size: 2rem;
             font-weight: 800;
-            line-height: 1.1;
+            line-height: 1;
         }
 
-        .val-primary { color: #0284c7; }
-        .val-danger { color: var(--danger); }
-        .val-success { color: var(--success); }
-
-        .charts-grid {
+        .charts-container {
             display: grid;
             grid-template-columns: 2fr 1fr;
-            gap: 20px;
-            margin-bottom: 24px;
+            gap: 16px;
+            margin-bottom: 18px;
         }
 
         @media (max-width: 900px) {
-            .charts-grid { grid-template-columns: 1fr; }
+            .charts-container { grid-template-columns: 1fr; }
         }
 
-        .chart-title {
-            font-size: 0.95rem;
+        .chart-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 18px 20px;
+        }
+
+        .chart-box-title {
+            font-size: 0.85rem;
             font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            color: var(--text-title);
+            margin-bottom: 14px;
         }
 
-        .table-card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 22px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-            border: 1px solid var(--border-subtle);
+        /* 4. TABLE RIWAYAT */
+        .table-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 18px 20px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
-            font-size: 0.88rem;
+            font-size: 0.85rem;
+            margin-top: 8px;
         }
 
         th {
@@ -702,46 +647,44 @@ class AnalyticsServer:
             color: #475569;
             font-weight: 700;
             text-align: left;
-            padding: 12px 14px;
-            border-bottom: 2px solid #e2e8f0;
-            font-size: 0.82rem;
+            padding: 10px 12px;
+            border-bottom: 2px solid var(--border);
+            font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.4px;
         }
 
         td {
-            padding: 12px 14px;
-            border-bottom: 1px solid #f1f5f9;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-title);
         }
 
-        tr:hover { background-color: #f8fafd; }
+        tr:nth-child(even) { background-color: #fafbfc; }
 
-        .tag-ng {
+        .tag-ng-clean {
             background: #fee2e2;
-            color: #dc2626;
-            padding: 3px 8px;
-            border-radius: 6px;
+            color: #b91c1c;
+            padding: 2px 6px;
+            border-radius: 3px;
             font-weight: 700;
-            font-size: 0.78rem;
-            display: inline-block;
+            font-size: 0.72rem;
         }
 
-        .tag-ok {
+        .tag-ok-clean {
             background: #dcfce7;
-            color: #16a34a;
-            padding: 3px 8px;
-            border-radius: 6px;
+            color: #15803d;
+            padding: 2px 6px;
+            border-radius: 3px;
             font-weight: 700;
-            font-size: 0.78rem;
-            display: inline-block;
+            font-size: 0.72rem;
         }
 
-        .footer {
+        .footer-note {
             text-align: center;
-            margin-top: 36px;
-            font-size: 0.8rem;
-            color: #94a3b8;
-            font-weight: 600;
+            margin-top: 30px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
         }
     </style>
 </head>
@@ -750,7 +693,7 @@ class AnalyticsServer:
     <nav class="navbar">
         <div class="nav-brand">
             <div class="brand-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
                     <line x1="8" y1="21" x2="16" y2="21"></line>
                     <line x1="12" y1="17" x2="12" y2="21"></line>
@@ -762,111 +705,99 @@ class AnalyticsServer:
         <div class="nav-right">
             <span class="clock-display" id="clockText">--:--:-- WIB</span>
             <span class="badge-live" id="badgeLive">
-                <span class="dot dot-green dot-pulse" id="dotLive"></span>
-                <span id="textLive">LIVE MONITORING</span>
+                <span class="dot-status dot-green" id="dotLive"></span>
+                <span id="textLive">LIVE</span>
             </span>
         </div>
     </nav>
 
     <div class="container">
-        <!-- SECTION 1: LIVE FACTORY FLOOR STATUS -->
-        <div class="section-header">
-            <div class="section-title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                </svg>
-                Status Real-Time Kondisi Lapangan
-            </div>
-            <span class="section-badge" id="badgeUpdateStatus">Sinkronisasi: Setiap 1.5s</span>
-        </div>
-
-        <div class="live-status-card">
-            <!-- Dynamic State Banner -->
-            <div class="live-status-banner banner-standby" id="statusBanner">
-                <div class="status-pill-large pill-standby" id="statusPill">
-                    <span class="dot dot-amber" id="statusDot"></span>
-                    <span id="statusTitle">STANDBY - SIAP OPERASI</span>
-                </div>
-                <div style="font-size: 0.82rem; font-weight: 600; color: #475569;" id="statusSubinfo">
-                    Menunggu operator memuat penugasan SPK
+        <!-- 1. KONDISI REAL-TIME LAPANGAN -->
+        <div class="section-label">Status Real-Time Kondisi Lapangan</div>
+        <div class="status-box">
+            <div class="status-header-row">
+                <span class="status-header-title">Status Operasional Mesin</span>
+                <div class="status-pill pill-standby" id="statusPill">
+                    <span class="dot-status dot-amber" id="statusDot"></span>
+                    <span id="statusTitle">STANDBY</span>
                 </div>
             </div>
 
             <!-- Metadata Active Batch -->
-            <div class="live-meta-grid">
-                <div class="meta-item">
-                    <span class="meta-label">Work Order Aktif</span>
-                    <span class="meta-value" id="val_wo">Tidak ada batch</span>
+            <div class="meta-grid">
+                <div class="meta-cell">
+                    <span class="meta-cell-label">Work Order Aktif</span>
+                    <span class="meta-cell-val" id="val_wo">-</span>
                 </div>
-                <div class="meta-item">
-                    <span class="meta-label">Kode SKU / Produk</span>
-                    <span class="meta-value" id="val_sku">-</span>
+                <div class="meta-cell">
+                    <span class="meta-cell-label">Kode SKU / Produk</span>
+                    <span class="meta-cell-val" id="val_sku">-</span>
                 </div>
-                <div class="meta-item">
-                    <span class="meta-label">File / Sumber Data</span>
-                    <span class="meta-value" id="val_file">-</span>
+                <div class="meta-cell">
+                    <span class="meta-cell-label">File / Sumber Data</span>
+                    <span class="meta-cell-val" id="val_file">-</span>
                 </div>
-                <div class="meta-item">
-                    <span class="meta-label">Operator Bertugas</span>
-                    <span class="meta-value" id="val_operator">Administrator</span>
+                <div class="meta-cell">
+                    <span class="meta-cell-label">Operator Bertugas</span>
+                    <span class="meta-cell-val" id="val_operator">admin</span>
                 </div>
-                <div class="meta-item">
-                    <span class="meta-label">Waktu Mulai Batch</span>
-                    <span class="meta-value" id="val_start">-</span>
+                <div class="meta-cell">
+                    <span class="meta-cell-label">Waktu Mulai Batch</span>
+                    <span class="meta-cell-val" id="val_start">-</span>
                 </div>
             </div>
 
-            <!-- Hardware Strip -->
-            <div class="hw-strip">
-                <span class="hw-badge">
-                    <span class="dot dot-gray" id="hw_printer_dot"></span>
-                    Printer Omega MX: <span id="hw_printer_text" style="font-weight: 700; margin-left: 2px;">Offline</span>
-                </span>
-                <span class="hw-badge">
-                    <span class="dot dot-gray" id="hw_s1_dot"></span>
-                    Keyence Scanner Sisi A: <span id="hw_s1_text" style="font-weight: 700; margin-left: 2px;">Offline</span>
-                </span>
-                <span class="hw-badge">
-                    <span class="dot dot-gray" id="hw_s2_dot"></span>
-                    Keyence Scanner Sisi B: <span id="hw_s2_text" style="font-weight: 700; margin-left: 2px;">Offline</span>
-                </span>
-                <span class="hw-badge">
-                    <span class="dot dot-gray" id="hw_modbus_dot"></span>
-                    Modbus I/O System: <span id="hw_modbus_text" style="font-weight: 700; margin-left: 2px;">Standby</span>
-                </span>
-                <span class="hw-badge">
-                    <span class="dot dot-gray" id="hw_api_dot"></span>
-                    API Sistem Utama: <span id="hw_api_text" style="font-weight: 700; margin-left: 2px;">Siap</span>
-                </span>
+            <!-- Hardware Line -->
+            <div class="hw-status-row">
+                <div class="hw-item">
+                    <span>Printer:</span>
+                    <span id="hw_printer_text" class="hw-val-offline">Offline</span>
+                </div>
+                <span>&bull;</span>
+                <div class="hw-item">
+                    <span>Scanner Sisi A:</span>
+                    <span id="hw_s1_text" class="hw-val-offline">Offline</span>
+                </div>
+                <span>&bull;</span>
+                <div class="hw-item">
+                    <span>Scanner Sisi B:</span>
+                    <span id="hw_s2_text" class="hw-val-offline">Offline</span>
+                </div>
+                <span>&bull;</span>
+                <div class="hw-item">
+                    <span>Modbus I/O:</span>
+                    <span id="hw_modbus_text" class="hw-val-offline">Standby</span>
+                </div>
+                <span>&bull;</span>
+                <div class="hw-item">
+                    <span>API Sistem Utama:</span>
+                    <span id="hw_api_text" class="hw-val-offline">Siap</span>
+                </div>
             </div>
         </div>
 
-        <!-- SECTION 2: CARDS SEPERTI DI HMI (PROGRES BATCH, OK/NG, ANTREAN KONVEYOR) -->
+        <!-- 2. TIGA CARD PERSIS SEPERTI DI HMI -->
         <div class="hmi-cards-grid">
             <!-- Card 1: Progres Batch -->
-            <div class="hmi-card">
-                <div class="hmi-card-title">
+            <div class="hmi-box">
+                <div class="hmi-header">
                     <span>Progres Batch</span>
-                    <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">Siklus Produksi</span>
                 </div>
-                <div class="gauge-container">
-                    <!-- SVG Semicircular Gauge -->
+                <div class="gauge-layout">
                     <div class="gauge-svg-wrap">
-                        <svg width="170" height="90" viewBox="0 0 180 95">
-                            <!-- Background Arc -->
-                            <path d="M 20 85 A 70 70 0 0 1 160 85" fill="none" stroke="#e2e8f0" stroke-width="16" stroke-linecap="round"/>
-                            <!-- Progress Arc -->
-                            <path id="gaugePath" d="M 20 85 A 70 70 0 0 1 160 85" fill="none" stroke="#0284c7" stroke-width="16" stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="220" style="transition: stroke-dashoffset 0.5s ease;"/>
+                        <svg width="160" height="85" viewBox="0 0 180 95">
+                            <path d="M 20 85 A 70 70 0 0 1 160 85" fill="none" stroke="#e2e8f0" stroke-width="15" stroke-linecap="round"/>
+                            <path id="gaugePath" d="M 20 85 A 70 70 0 0 1 160 85" fill="none" stroke="#0284c7" stroke-width="15" stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="220" style="transition: stroke-dashoffset 0.4s ease;"/>
                         </svg>
                         <div class="gauge-percent-text" id="gaugePct">0%</div>
                         <span class="gauge-subtext">PROGRESS</span>
                     </div>
 
-                    <div class="gauge-right-info">
-                        <div class="gauge-counter-big">
+                    <div class="gauge-info">
+                        <div class="gauge-counts">
                             <span id="gaugeJudged">0</span> / <span id="gaugeTotal">0</span>
                         </div>
-                        <span class="gauge-count-label">Kardus Selesai</span>
+                        <span class="gauge-label">Kardus Selesai</span>
                         <div class="gauge-sisa">
                             Sisa: <span id="gaugeSisa">0</span>
                         </div>
@@ -874,136 +805,99 @@ class AnalyticsServer:
                 </div>
             </div>
 
-            <!-- Card 2: Counters OK & NG (Side-by-side) -->
-            <div class="hmi-card">
-                <div class="hmi-card-title">
-                    <span>Hasil Inspeksi Dual-QC</span>
-                    <span id="ngRateBadge" style="font-size: 0.72rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Afkir: 0.0%</span>
-                </div>
-                <div class="counters-split">
-                    <!-- Box TOTAL OK -->
-                    <div class="counter-box box-ok">
-                        <div class="counter-box-title">
-                            <span class="dot dot-green"></span>
-                            TOTAL OK
-                        </div>
-                        <div class="counter-number" id="countOk">0</div>
-                        <div class="counter-ratio">Lolos Standar</div>
+            <!-- Card 2: TOTAL OK & TOTAL NG (Identik HMI) -->
+            <div class="hmi-box">
+                <div class="ok-ng-grid">
+                    <div class="counter-card counter-card-ok">
+                        <div class="counter-card-title">TOTAL OK</div>
+                        <div class="counter-card-num" id="countOk">0</div>
                     </div>
-
-                    <!-- Box TOTAL NG -->
-                    <div class="counter-box box-ng">
-                        <div class="counter-box-title">
-                            <span class="dot dot-red"></span>
-                            TOTAL NG
-                        </div>
-                        <div class="counter-number" id="countNg">0</div>
-                        <div class="counter-ratio">Kardus Ditolak</div>
+                    <div class="counter-card counter-card-ng">
+                        <div class="counter-card-title">TOTAL NG</div>
+                        <div class="counter-card-num" id="countNg">0</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Card 3: Antrean Konveyor In-Transit -->
-            <div class="hmi-card conveyor-box">
-                <div class="hmi-card-title">
+            <!-- Card 3: Antrean Konveyor (Identik HMI) -->
+            <div class="hmi-box">
+                <div class="hmi-header">
                     <span>Antrean Konveyor</span>
-                    <span class="badge-transit" id="badgeTransit">In Transit: 0 Box</span>
+                    <span class="badge-transit-clean" id="badgeTransit">In Transit: 0 Box</span>
                 </div>
 
-                <!-- Visual Alur Fisik Konveyor -->
-                <div class="conveyor-track">
-                    <div class="conveyor-line"></div>
-                    <!-- Node 1: Head Print -->
-                    <div class="conveyor-node">
-                        <div class="node-circle" id="nodeHeadPrint"></div>
-                        <span class="node-label">Head Print</span>
+                <div class="conveyor-diagram">
+                    <div class="conveyor-track-line"></div>
+                    <div class="conveyor-point">
+                        <div class="node-circle-clean" id="nodeHeadPrint"></div>
+                        <span class="node-name">Head Print</span>
                     </div>
-                    <!-- Node 2: Dual Scanner -->
-                    <div class="conveyor-node">
-                        <div class="node-circle" id="nodeScanner"></div>
-                        <span class="node-label">Dual Scanner</span>
+                    <div class="conveyor-point">
+                        <div class="node-circle-clean" id="nodeScanner"></div>
+                        <span class="node-name">Dual Scanner</span>
                     </div>
-                    <!-- Node 3: Pusher Solenoid -->
-                    <div class="conveyor-node">
-                        <div class="node-circle" id="nodePusher"></div>
-                        <span class="node-label">Pusher (DO0)</span>
+                    <div class="conveyor-point">
+                        <div class="node-circle-clean" id="nodePusher"></div>
+                        <span class="node-name">Pusher (DO0)</span>
                     </div>
                 </div>
-
-                <div class="transit-status-msg" id="transitStatusText">
-                    Konveyor bersih, tidak ada kardus tertahan di antara printer dan sensor scanner.
-                </div>
             </div>
         </div>
 
-        <!-- SECTION 3: REKAPITULASI HISTORIS MANAJEMEN -->
-        <div class="section-header">
-            <div class="section-title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 3v18h18"></path>
-                    <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path>
-                </svg>
-                Rekapitulasi Produksi & Analisis Historis
+        <!-- 3. REKAPITULASI PRODUKSI -->
+        <div class="section-label">Rekapitulasi Produksi Terkumpul</div>
+        <div class="rekap-grid">
+            <div class="rekap-card">
+                <div class="rekap-label">Total Volume Cetak</div>
+                <div id="total_volume" class="rekap-val" style="color: #0284c7;">-</div>
             </div>
-            <span class="section-badge">Akumulasi Database</span>
-        </div>
-
-        <div class="stats-grid">
-            <div class="card">
-                <div class="stat-title">Total Volume Cetak</div>
-                <div id="total_volume" class="stat-value val-primary">-</div>
+            <div class="rekap-card">
+                <div class="rekap-label">Rata-Rata NG Level</div>
+                <div id="avg_ng" class="rekap-val" style="color: #dc2626;">-</div>
             </div>
-            <div class="card">
-                <div class="stat-title">Rata-Rata NG Level</div>
-                <div id="avg_ng" class="stat-value val-danger">-</div>
-            </div>
-            <div class="card">
-                <div class="stat-title">Total Batch Selesai</div>
-                <div id="total_batch" class="stat-value val-success">-</div>
+            <div class="rekap-card">
+                <div class="rekap-label">Total Batch Selesai</div>
+                <div id="total_batch" class="rekap-val" style="color: #16a34a;">-</div>
             </div>
         </div>
 
-        <div class="charts-grid">
-            <div class="card">
-                <div class="chart-title">
-                    <span>Tren Produksi Harian (7 Hari Terakhir)</span>
-                </div>
-                <canvas id="chartLine" height="130"></canvas>
+        <!-- CHARTS -->
+        <div class="charts-container">
+            <div class="chart-box">
+                <div class="chart-box-title">Tren Produksi Harian (7 Hari Terakhir)</div>
+                <canvas id="chartLine" height="110"></canvas>
             </div>
-            <div class="card">
-                <div class="chart-title">
-                    <span>Distribusi 5 SKU Teratas</span>
-                </div>
-                <canvas id="chartPie" height="130"></canvas>
+            <div class="chart-box">
+                <div class="chart-box-title">Distribusi 5 SKU Teratas</div>
+                <canvas id="chartPie" height="110"></canvas>
             </div>
         </div>
 
-        <div class="table-card">
-            <div class="chart-title">
+        <!-- RIWAYAT BATCH -->
+        <div class="table-box">
+            <div class="chart-box-title" style="display: flex; justify-content: space-between;">
                 <span>Riwayat Batch Produksi Terkini</span>
-                <span id="record_count" style="font-size: 0.85rem; font-weight: 400; color: var(--text-muted);">0 Batch</span>
+                <span id="record_count" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">-</span>
             </div>
-            <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Waktu Selesai</th>
-                            <th>Durasi</th>
-                            <th>File Sumber</th>
-                            <th>Total Data</th>
-                            <th>Total Print</th>
-                            <th>NG Level</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table_body">
-                        <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Memuat riwayat produksi...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Waktu Selesai</th>
+                        <th>Durasi</th>
+                        <th>File Sumber</th>
+                        <th>Total Data</th>
+                        <th>Total Print</th>
+                        <th>NG Level</th>
+                    </tr>
+                </thead>
+                <tbody id="table_body">
+                    <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 18px;">Memuat data riwayat...</td></tr>
+                </tbody>
+            </table>
         </div>
 
-        <div class="footer">
-            PT SMARTEK SISTEM INOVASI &copy; 2026 | Omega MX Industrial Batch Printing & Dual-QC System v2.0
+        <div class="footer-note">
+            Omega MX Industrial Batch Printing & QC System v2.0 | Management Room View
         </div>
     </div>
 
@@ -1011,7 +905,7 @@ class AnalyticsServer:
         let lineChartInstance = null;
         let pieChartInstance = null;
 
-        // Jam Real-Time Navbar
+        // Jam Navbar
         function updateClock() {
             const now = new Date();
             const h = String(now.getHours()).padStart(2, '0');
@@ -1031,72 +925,59 @@ class AnalyticsServer:
 
                 // Live Badge
                 document.getElementById('badgeLive').className = 'badge-live';
-                document.getElementById('dotLive').className = 'dot dot-green dot-pulse';
-                document.getElementById('textLive').innerText = 'LIVE MONITORING';
+                document.getElementById('dotLive').className = 'dot-status dot-green';
+                document.getElementById('textLive').innerText = 'LIVE';
 
-                // Status Banner Logic
+                // Status Banner Logic (Simple, Clean, No AI text)
                 const rawStatus = (s.system_status || 'READY').toUpperCase();
-                const banner = document.getElementById('statusBanner');
                 const pill = document.getElementById('statusPill');
                 const pDot = document.getElementById('statusDot');
                 const pTitle = document.getElementById('statusTitle');
-                const pSub = document.getElementById('statusSubinfo');
 
                 if (rawStatus === 'RUNNING') {
-                    banner.className = 'live-status-banner banner-running';
-                    pill.className = 'status-pill-large pill-running';
-                    pDot.className = 'dot dot-green dot-pulse';
-                    pTitle.innerText = 'MESIN RUNNING (MEMPRODUKSI)';
-                    pSub.innerText = 'Sedang mengeksekusi pencetakan dan inspeksi dual scanner';
+                    pill.className = 'status-pill pill-running';
+                    pDot.className = 'dot-status dot-green';
+                    pTitle.innerText = 'RUNNING';
                 } else if (rawStatus === 'PAUSED') {
-                    banner.className = 'live-status-banner banner-paused';
-                    pill.className = 'status-pill-large pill-paused';
-                    pDot.className = 'dot dot-amber';
-                    pTitle.innerText = 'PRODUKSI DIJEDA (PAUSED)';
-                    pSub.innerText = 'Operator menghentikan sementara proses pencetakan';
+                    pill.className = 'status-pill pill-paused';
+                    pDot.className = 'dot-status dot-amber';
+                    pTitle.innerText = 'PAUSED';
                 } else if (rawStatus === 'STOPPED' || rawStatus === 'ALARM') {
-                    banner.className = 'live-status-banner banner-stopped';
-                    pill.className = 'status-pill-large pill-stopped';
-                    pDot.className = 'dot dot-red';
-                    pTitle.innerText = 'MESIN STOP / ALARM';
-                    pSub.innerText = 'Kondisi mesin terhenti atau terjadi interlock';
+                    pill.className = 'status-pill pill-stopped';
+                    pDot.className = 'dot-status dot-red';
+                    pTitle.innerText = 'STOPPED';
                 } else {
-                    banner.className = 'live-status-banner banner-standby';
-                    pill.className = 'status-pill-large pill-standby';
-                    pDot.className = 'dot dot-amber';
-                    pTitle.innerText = 'STANDBY - SIAP OPERASI';
-                    pSub.innerText = 'Mesin standby menunggu penugasan batch baru dari operator atau ERP';
+                    pill.className = 'status-pill pill-standby';
+                    pDot.className = 'dot-status dot-amber';
+                    pTitle.innerText = 'STANDBY';
                 }
 
                 // Metadata Batch
                 document.getElementById('val_wo').innerText = s.current_work_order || '-';
                 document.getElementById('val_sku').innerText = s.current_sku || '-';
                 document.getElementById('val_file').innerText = s.current_file || '-';
-                document.getElementById('val_operator').innerText = s.operator || 'Admin';
+                document.getElementById('val_operator').innerText = s.operator || 'admin';
                 document.getElementById('val_start').innerText = s.batch_start_time || '-';
 
-                // Hardware Status Indicators
+                // Hardware Status Line
                 const hw = s.hardware || {};
-                function setHw(idDot, idText, isOnline, label) {
-                    const dot = document.getElementById(idDot);
+                function setHw(idText, isOnline) {
                     const txt = document.getElementById(idText);
                     if (isOnline) {
-                        dot.className = 'dot dot-green';
+                        txt.className = 'hw-val-online';
                         txt.innerText = 'Online';
-                        txt.style.color = '#15803d';
                     } else {
-                        dot.className = 'dot dot-gray';
+                        txt.className = 'hw-val-offline';
                         txt.innerText = 'Offline';
-                        txt.style.color = '#64748b';
                     }
                 }
-                setHw('hw_printer_dot', 'hw_printer_text', hw.printer_online);
-                setHw('hw_s1_dot', 'hw_s1_text', hw.scanner1_online);
-                setHw('hw_s2_dot', 'hw_s2_text', hw.scanner2_online);
-                setHw('hw_modbus_dot', 'hw_modbus_text', hw.modbus_online);
-                setHw('hw_api_dot', 'hw_api_text', hw.upstream_api_online);
+                setHw('hw_printer_text', hw.printer_online);
+                setHw('hw_s1_text', hw.scanner1_online);
+                setHw('hw_s2_text', hw.scanner2_online);
+                setHw('hw_modbus_text', hw.modbus_online);
+                setHw('hw_api_text', hw.upstream_api_online);
 
-                // Progres Batch Card (Gauge SVG Arc Calculation)
+                // Progres Batch Card
                 const p = s.progress || {};
                 const target = p.total_target || 0;
                 const judged = p.judged || 0;
@@ -1108,7 +989,6 @@ class AnalyticsServer:
                 document.getElementById('gaugeSisa').innerText = sisa;
                 document.getElementById('gaugePct').innerText = pct + '%';
 
-                // Semi-circle perimeter ~ 220
                 const maxDash = 220;
                 const offset = maxDash - Math.min(100, Math.max(0, pct)) * (maxDash / 100);
                 const gPath = document.getElementById('gaugePath');
@@ -1127,10 +1007,6 @@ class AnalyticsServer:
                 document.getElementById('countOk').innerText = okCnt;
                 document.getElementById('countNg').innerText = ngCnt;
 
-                const totalJudged = okCnt + ngCnt;
-                const ngRate = totalJudged > 0 ? ((ngCnt / totalJudged) * 100).toFixed(1) : '0.0';
-                document.getElementById('ngRateBadge').innerText = 'Afkir: ' + ngRate + '%';
-
                 // Antrean Konveyor In-Transit
                 const inTransit = p.in_transit || 0;
                 document.getElementById('badgeTransit').innerText = `In Transit: ${inTransit} Box`;
@@ -1138,35 +1014,27 @@ class AnalyticsServer:
                 const nodeHp = document.getElementById('nodeHeadPrint');
                 const nodeScan = document.getElementById('nodeScanner');
                 const nodePush = document.getElementById('nodePusher');
-                const tText = document.getElementById('transitStatusText');
 
                 if (inTransit > 0) {
-                    nodeHp.className = 'node-circle active';
-                    nodeScan.className = 'node-circle active';
-                    nodePush.className = (ngCnt > 0) ? 'node-circle active' : 'node-circle';
-                    tText.innerText = `${inTransit} kardus sedang mengalir di atas konveyor menuju sensor Keyence.`;
-                    tText.style.color = '#b45309';
+                    nodeHp.className = 'node-circle-clean active';
+                    nodeScan.className = 'node-circle-clean active';
+                    nodePush.className = (ngCnt > 0) ? 'node-circle-clean active' : 'node-circle-clean';
                 } else {
-                    nodeHp.className = 'node-circle';
-                    nodeScan.className = 'node-circle';
-                    nodePush.className = 'node-circle';
-                    tText.innerText = 'Konveyor bersih, tidak ada kardus tertahan di antara printer dan sensor scanner.';
-                    tText.style.color = '#64748b';
+                    nodeHp.className = 'node-circle-clean';
+                    nodeScan.className = 'node-circle-clean';
+                    nodePush.className = 'node-circle-clean';
                 }
 
             } catch (err) {
-                // HMI Offline / Tidak merespons
+                // HMI Offline
                 document.getElementById('badgeLive').className = 'badge-live';
-                document.getElementById('badgeLive').style.borderColor = '#cbd5e1';
-                document.getElementById('dotLive').className = 'dot dot-gray';
-                document.getElementById('textLive').innerText = 'HMI OFFLINE';
+                document.getElementById('dotLive').className = 'dot-status dot-gray';
+                document.getElementById('textLive').innerText = 'OFFLINE';
 
-                const banner = document.getElementById('statusBanner');
-                banner.className = 'live-status-banner banner-offline';
-                document.getElementById('statusPill').className = 'status-pill-large pill-offline';
-                document.getElementById('statusDot').className = 'dot dot-gray';
-                document.getElementById('statusTitle').innerText = 'KONEKSI HMI TERPUTUS';
-                document.getElementById('statusSubinfo').innerText = 'Tidak dapat menghubungi service controller Omega MX di port 5022';
+                const pill = document.getElementById('statusPill');
+                pill.className = 'status-pill pill-offline';
+                document.getElementById('statusDot').className = 'dot-status dot-gray';
+                document.getElementById('statusTitle').innerText = 'OFFLINE';
             }
         }
 
@@ -1180,7 +1048,7 @@ class AnalyticsServer:
                     document.getElementById('total_volume').innerText = "0";
                     document.getElementById('avg_ng').innerText = "0.0";
                     document.getElementById('total_batch').innerText = "0";
-                    document.getElementById('table_body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Belum ada riwayat batch produksi tercatat.</td></tr>';
+                    document.getElementById('table_body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 18px;">Belum ada riwayat batch produksi tercatat.</td></tr>';
                     return;
                 }
 
@@ -1206,15 +1074,23 @@ class AnalyticsServer:
                             label: 'Volume Cetak',
                             data: volData.length ? volData : [0],
                             borderColor: '#0284c7',
-                            backgroundColor: 'rgba(2, 132, 199, 0.1)',
-                            tension: 0.35,
+                            backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                            tension: 0.25,
                             fill: true,
-                            borderWidth: 2.5,
+                            borderWidth: 2,
                             pointBackgroundColor: '#0284c7',
-                            pointRadius: 4
+                            pointRadius: 3
                         }]
                     },
-                    options: { responsive: true, maintainAspectRatio: true }
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: '#f1f5f9' } },
+                            x: { grid: { display: false } }
+                        }
+                    }
                 });
 
                 // Doughnut Chart
@@ -1232,10 +1108,15 @@ class AnalyticsServer:
                         labels: topSkus.map(i => i[0]),
                         datasets: [{
                             data: topSkus.map(i => i[1]),
-                            backgroundColor: ['#16a34a', '#eab308', '#ea580c', '#dc2626', '#8b5cf6']
+                            backgroundColor: ['#16a34a', '#eab308', '#ea580c', '#dc2626', '#8b5cf6'],
+                            borderWidth: 1
                         }]
                     },
-                    options: { responsive: true, maintainAspectRatio: true }
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: true,
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }
+                    }
                 });
 
                 function escapeHtml(text) {
@@ -1249,8 +1130,8 @@ class AnalyticsServer:
                 const recent = [...data].reverse().slice(0, 10);
                 const rows = recent.map(r => {
                     const ngBadge = parseInt(r.NG_Level) > 0 
-                        ? `<span class="tag-ng">${escapeHtml(r.NG_Level)} NG</span>` 
-                        : `<span class="tag-ok">0 NG</span>`;
+                        ? `<span class="tag-ng-clean">${escapeHtml(r.NG_Level)} NG</span>` 
+                        : `<span class="tag-ok-clean">0 NG</span>`;
                     return `<tr>
                         <td>${escapeHtml(r.Waktu_Selesai)}</td>
                         <td>${escapeHtml(r.Durasi)}</td>
@@ -1269,10 +1150,10 @@ class AnalyticsServer:
 
         // Inisialisasi & Polling Interval
         pollLiveStatus();
-        setInterval(pollLiveStatus, 1500); // Live status setiap 1.5 detik
+        setInterval(pollLiveStatus, 1500);
 
         loadHistoryData();
-        setInterval(loadHistoryData, 10000); // Data riwayat setiap 10 detik
+        setInterval(loadHistoryData, 10000);
     </script>
 </body>
 </html>"""
