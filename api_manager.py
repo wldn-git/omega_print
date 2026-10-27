@@ -173,18 +173,18 @@ class APIManager:
                         "Material Code": str(c.get("material_code", hdr_matl) if isinstance(c, dict) else hdr_matl)
                     })
             else:
-                # Fallback: Work Order hanya menyertakan header target_qty (misal 50 box)
-                # Mesin meng-generate serialisasi kupon QR otomatis
+                # Fallback: Work Order hanya menyertakan header target_qty (misal 10 box)
+                # Mesin meng-generate serialisasi kupon QR otomatis (mendukung CouponCode_R1 & CouponCode_R2)
                 try:
                     qty = int(work_order.get("target_qty") or work_order.get("qty") or 10)
                 except Exception:
                     qty = 10
                 for idx in range(1, qty + 1):
                     items.append({
-                        "No": idx,
-                        "SKU": hdr_sku,
-                        "QR": f"{hdr_sku}-{hdr_batch}-{idx:04d}",
-                        "Material Code": hdr_matl
+                        "ProductSKU": hdr_sku,
+                        "CouponCode_R1": f"{hdr_sku}-{hdr_batch}-R1-{idx:04d}",
+                        "CouponCode_R2": f"{hdr_sku}-{hdr_batch}-R2-{idx:04d}",
+                        "MaterialCode": hdr_matl
                     })
         elif isinstance(work_order, list):
             items = work_order
@@ -192,25 +192,10 @@ class APIManager:
         if not items:
             return pd.DataFrame(), "Data item kosong pada Work Order terpilih."
 
-        # Standarisasi kolom menjadi: SKU, QR, Material Code
-        norm_rows = []
-        for idx, it in enumerate(items, start=1):
-            if isinstance(it, dict):
-                # Cari kemungkinan nama kolom yang ekuivalen
-                sku = str(it.get("SKU") or it.get("sku") or it.get("product_sku") or it.get("item_code") or "").strip()
-                qr = str(it.get("QR") or it.get("qr") or it.get("coupon") or it.get("coupon_qr") or it.get("code") or "").strip()
-                matl = str(it.get("Material Code") or it.get("material_code") or it.get("matl") or it.get("matl_code") or "").strip()
-            else:
-                sku, qr, matl = f"SKU_{idx}", str(it).strip(), "MATL_DEFAULT"
-
-            norm_rows.append({
-                "SKU": sku,
-                "QR": qr,
-                "Material Code": matl
-            })
-
-        df = pd.DataFrame(norm_rows, dtype=str)
-        # Pastikan tidak ada data yang terkonversi angka otomatis
+        # Konversi langsung ke pandas DataFrame dengan mempertahankan nama-nama kolom asli (seperti di Excel: ProductSKU, CouponCode_R1, CouponCode_R2, MaterialCode)
+        df = pd.DataFrame(items, dtype=str)
+        
+        # Bersihkan spasi tepi dan pastikan string murni (mencegah leading zeroes hilang)
         for col in df.columns:
             df[col] = df[col].astype(str).str.strip()
 

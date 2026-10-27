@@ -21,37 +21,92 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
-# Sample Data Work Order aktif di ERP
+# Sample Data Work Order aktif di ERP (Format persis seperti di file Excel produksi)
 SAMPLE_WORK_ORDERS = [
     {
-        "work_order_id": "SPK-2026-10-001",
-        "sku_code": "SKU-IND-882",
-        "sku_name": "Premium Tea Box 250gr",
-        "material_code": "MAT-KARTON-A",
+        "work_order_id": "SPK-2026-NK6173-01",
+        "sku_code": "NK 6173 BTGT",
+        "sku_name": "Produk NK 6173 BTGT",
+        "material_code": "NK 6173 BTGT-83IA00120",
         "batch_no": "B2610A",
-        "target_qty": 5,
+        "target_qty": 10,
         "priority": "HIGH",
         "status": "READY",
-        "notes": "Pesanan Ekspor Line 1 - Periksa presisi QR",
+        "notes": "Data riil produksi sesuai file Excel master pabrik",
         "items": [
-            {"No": 1, "SKU": "SKU-IND-882", "QR": "008820001", "Material Code": "MAT-KARTON-A"},
-            {"No": 2, "SKU": "SKU-IND-882", "QR": "008820002", "Material Code": "MAT-KARTON-A"},
-            {"No": 3, "SKU": "SKU-IND-882", "QR": "008820003", "Material Code": "MAT-KARTON-A"},
-            {"No": 4, "SKU": "SKU-IND-882", "QR": "008820004", "Material Code": "MAT-KARTON-A"},
-            {"No": 5, "SKU": "SKU-IND-882", "QR": "008820005", "Material Code": "MAT-KARTON-A"}
+            {
+                "ProductSKU": "NK 6173 BTGT",
+                "CouponCode_R1": "ECE4TUE11",
+                "CouponCode_R2": "3XAHNTE9",
+                "MaterialCode": "NK 6173 BTGT-83IA00120"
+            },
+            {
+                "ProductSKU": "NK 6173 BTGT",
+                "CouponCode_R1": "ECE4TUE12",
+                "CouponCode_R2": "3X63GCJZ",
+                "MaterialCode": "NK 6173 BTGT-83IA00121"
+            },
+            {
+                "ProductSKU": "NK 6173 BTGT",
+                "CouponCode_R1": "ECE4TUE13",
+                "CouponCode_R2": "3XJHJ6AZ",
+                "MaterialCode": "NK 6173 BTGT-83IA00122"
+            },
+            {
+                "ProductSKU": "NK 6173 BTGT",
+                "CouponCode_R1": "ECE4TUE14",
+                "CouponCode_R2": "3XNFCFA7",
+                "MaterialCode": "NK 6173 BTGT-83IA00123"
+            },
+            {
+                "ProductSKU": "NK 6173 BTGT",
+                "CouponCode_R1": "ECE4TUE15",
+                "CouponCode_R2": "3XNUAMFA",
+                "MaterialCode": "NK 6173 BTGT-83IA00124"
+            },
+            {
+                "ProductSKU": "NK 6173 BTGT",
+                "CouponCode_R1": "ECE4TUE16",
+                "CouponCode_R2": "3XQ44F39",
+                "MaterialCode": "NK 6173 BTGT-83IA00125"
+            },
+            {
+                "ProductSKU": "NK 6173 BTGT",
+                "CouponCode_R1": "ECE4TUE17",
+                "CouponCode_R2": "3XNQNAMF",
+                "MaterialCode": "NK 6173 BTGT-83IA00126"
+            },
+            {
+                "ProductSKU": "NK 6173 BTGT",
+                "CouponCode_R1": "ECE4TUE18",
+                "CouponCode_R2": "3XPMT797",
+                "MaterialCode": "NK 6172 BTGT-83IA00110"
+            },
+            {
+                "ProductSKU": "NK 6173 BTGT",
+                "CouponCode_R1": "ECE4TUE19",
+                "CouponCode_R2": "3XQLM7EX",
+                "MaterialCode": "NK 6172 BTGT-83IA00111"
+            },
+            {
+                "ProductSKU": "NK 6173 BTGT",
+                "CouponCode_R1": "ECE4TUE20",
+                "CouponCode_R2": "3XQLM7EN",
+                "MaterialCode": "NK 6172 BTGT-83IA00112"
+            }
         ]
     },
     {
-        "work_order_id": "SPK-2026-10-002",
+        "work_order_id": "SPK-2026-COF410-02",
         "sku_code": "SKU-COF-410",
         "sku_name": "Arabica Gold Blend 500gr",
         "material_code": "MAT-FOIL-B",
         "batch_no": "B2610B",
-        "target_qty": 10,
+        "target_qty": 5,
         "priority": "NORMAL",
         "status": "READY",
-        "notes": "Auto-generate serialisasi kupon QR oleh mesin",
-        "items": []  # items kosong -> menguji fitur auto-serialization di Omega MX
+        "notes": "Contoh batch yang serialisasi kupon R1 & R2-nya di-generate otomatis oleh mesin",
+        "items": []
     }
 ]
 

@@ -3336,10 +3336,15 @@ class OmegaBatchApp:
             self.cb_sku['values'] = cols
             self.cb_qr['values'] = cols
             self.cb_matl['values'] = cols
-            if len(cols) >= 3:
-                self.sel_sku.set(cols[0])
-                self.sel_qr.set(cols[1])
-                self.sel_matl.set(cols[2])
+
+            # Deteksi cerdas kolom (cocok dengan format Excel: ProductSKU, CouponCode_R1, MaterialCode)
+            sku_cand = next((c for c in cols if any(k in c.lower() for k in ["productsku", "sku"])), cols[0] if cols else "")
+            qr_cand = next((c for c in cols if any(k in c.lower() for k in ["couponcode_r1", "coupon", "qr", "kupon"])), cols[1] if len(cols) > 1 else "")
+            mat_cand = next((c for c in cols if any(k in c.lower() for k in ["materialcode", "matl", "material", "mat"])), cols[2] if len(cols) > 2 else "")
+
+            if sku_cand: self.sel_sku.set(sku_cand)
+            if qr_cand: self.sel_qr.set(qr_cand)
+            if mat_cand: self.sel_matl.set(mat_cand)
 
             self.update_table()
             self.log_msg(f"[API] Berhasil memuat data Work Order: {wo_id} ({self.total_load_data} item)")
@@ -3536,10 +3541,26 @@ class OmegaBatchApp:
                 tout = 5.0
 
             def _thread_fn():
-                success, data_or_msg = self.api_manager.fetch_active_work_orders(base_u, key_u, tout)
+                try:
+                    res = self.api_manager.fetch_active_work_orders(
+                        base_url=base_u,
+                        endpoint=self.api_endpoint_work_orders.get().strip(),
+                        api_key=key_u,
+                        timeout=tout
+                    )
+                    if isinstance(res, tuple) and len(res) >= 2:
+                        success = bool(res[0])
+                        data_or_msg = res[1]
+                    else:
+                        success = False
+                        data_or_msg = "Format respons API tidak valid."
+                except Exception as ex:
+                    success = False
+                    data_or_msg = f"Koneksi gagal: {str(ex)}"
+
                 def _ui_update():
                     btn_refresh.config(state=tk.NORMAL)
-                    if success and isinstance(data_or_msg, list):
+                    if success and isinstance(data_or_msg, list) and len(data_or_msg) > 0:
                         count = len(data_or_msg)
                         lbl_status_fetch.config(text=f"✔ Ditemukan {count} Work Order aktif dari Sistem Utama.")
                         for idx, wo in enumerate(data_or_msg):
@@ -3559,17 +3580,17 @@ class OmegaBatchApp:
                                     wo.get("priority", "NORMAL")
                                 )
                             )
-                        if count > 0:
-                            # Auto-select baris pertama
-                            first_id = f"wo_0"
-                            wo_tree.selection_set(first_id)
-                            wo_tree.focus(first_id)
-                            _on_item_select(None)
+                        # Auto-select baris pertama
+                        first_id = f"wo_0"
+                        wo_tree.selection_set(first_id)
+                        wo_tree.focus(first_id)
+                        _on_item_select(None)
                     else:
-                        lbl_status_fetch.config(text=f"✖ Gagal mengambil data: {data_or_msg}")
+                        err_text = str(data_or_msg) if not success else "Sistem Utama tidak memiliki data Work Order aktif saat ini."
+                        lbl_status_fetch.config(text=f"✖ {err_text}")
                         lbl_detail_wo.config(
-                            text=f"Koneksi ke API Sistem Utama bermasalah ({data_or_msg}).\n"
-                            f"Silakan periksa Base URL di tab Koneksi atau gunakan tombol 'Gunakan File Excel' di bawah."
+                            text=f"Keterangan: {err_text}\n"
+                            f"Pastikan simulator mock_erp_server.py sedang aktif di port 8000, atau gunakan tombol 'Gunakan File Excel' di bawah."
                         )
                 win.after(0, _ui_update)
 
