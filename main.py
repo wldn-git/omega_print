@@ -237,7 +237,7 @@ class OmegaBatchApp:
         self.api_timeout = tk.StringVar(value="5")
         self.api_auto_sync_batch = tk.BooleanVar(value=True)
         self.api_auto_sync_box = tk.BooleanVar(value=False)
-        self.api_status_text = tk.StringVar(value="○ Belum Diuji")
+        self.api_status_text = tk.StringVar(value="Belum Diuji")
         self.current_work_order_id = ""
         self.active_sys_status = "READY"
         
@@ -290,13 +290,13 @@ class OmegaBatchApp:
             print(f"Gagal memuat logo footer: {e}")
 
         # 2. Tampilkan Label Versi di sebelah logo Smartek (Kiri Bawah)
-        ttk.Label(footer_frame, text="© 2026 SMARTEK SOFTWARE | Developed by WLDN | Version 2.0 API Ready", font=("Segoe UI", 8, "italic")).pack(side=tk.LEFT)
+        ttk.Label(footer_frame, text="(c) 2026 SMARTEK SOFTWARE | Developed by WLDN | Version 2.0 API Ready", font=("Segoe UI", 8, "italic")).pack(side=tk.LEFT)
 
         # 3. Status Sistem & User Aktif di sebelah Kanan Bawah
         self.lbl_footer_user = ttk.Label(footer_frame, text="User: -", font=("Segoe UI", 8, "italic"), foreground="#333333")
         self.lbl_footer_user.pack(side=tk.RIGHT, padx=12)
 
-        ttk.Label(footer_frame, text="● Sistem Siap", font=("Segoe UI", 8, "bold"), foreground="#1e7e34").pack(side=tk.RIGHT, padx=5)
+        ttk.Label(footer_frame, text="Sistem Siap", font=("Segoe UI", 8, "bold"), foreground="#1e7e34").pack(side=tk.RIGHT, padx=5)
 
         # --- TOP HEADER BAR (Dark Slate #1e293b) ---
         self.top_bar = tk.Frame(self.root, bg="#1e293b", height=42)
@@ -314,7 +314,7 @@ class OmegaBatchApp:
 
         # Live System Status Pill in Center
         self.lbl_system_status_pill = tk.Label(
-            self.top_bar, text="● SIAP", font=("Segoe UI", 9, "bold"),
+            self.top_bar, text="SIAP", font=("Segoe UI", 9, "bold"),
             fg="#10b981", bg="#064e3b", relief="solid", bd=1, padx=14, pady=2
         )
         self.lbl_system_status_pill.pack(side=tk.LEFT, expand=True)
@@ -375,11 +375,11 @@ class OmegaBatchApp:
         self.nav_btns = {}
 
         nav_labels = [
-            ("main", "🖶  Operasi Cetak"),
-            ("history", "🕒  Riwayat Cetak"),
-            ("conn", "⚙  Koneksi"),
-            ("logs", "📋  Log Aktivitas"),
-            ("master", "🛠  Pengaturan Master")
+            ("main", "Operasi Cetak"),
+            ("history", "Riwayat Cetak"),
+            ("conn", "Koneksi"),
+            ("logs", "Log Aktivitas"),
+            ("master", "Pengaturan Master")
         ]
 
         self.f_nav_list = tk.Frame(self.sidebar_frame, bg="#1e293b")
@@ -400,30 +400,35 @@ class OmegaBatchApp:
         f_hw.pack(side=tk.BOTTOM, fill=tk.X)
         tk.Label(f_hw, text="STATUS HARDWARE", font=("Segoe UI", 7, "bold"), fg="#64748b", bg="#0f172a").pack(anchor="w", pady=(0, 4))
 
-        # Hardware indicator rows
-        r_p = tk.Frame(f_hw, bg="#0f172a"); r_p.pack(fill=tk.X, pady=1)
-        self.lbl_hw_printer = tk.Label(r_p, text="●", font=("Segoe UI", 9), fg="#64748b", bg="#0f172a")
-        self.lbl_hw_printer.pack(side=tk.LEFT, padx=(0, 4))
+        # Hardware indicator rows (Grafis Canvas Murni, Bebas Karakter/Icon Teks)
+        r_p = tk.Frame(f_hw, bg="#0f172a"); r_p.pack(fill=tk.X, pady=2)
+        self.canvas_hw_p = tk.Canvas(r_p, width=9, height=9, bg="#0f172a", highlightthickness=0)
+        self.canvas_hw_p.pack(side=tk.LEFT, padx=(0, 6))
+        self.dot_hw_printer = self.canvas_hw_p.create_oval(1, 1, 8, 8, fill="#64748b", outline="")
         tk.Label(r_p, text="Printer Omega", font=("Segoe UI", 8), fg="#cbd5e1", bg="#0f172a").pack(side=tk.LEFT)
 
-        r_s1 = tk.Frame(f_hw, bg="#0f172a"); r_s1.pack(fill=tk.X, pady=1)
-        self.lbl_hw_scanner1 = tk.Label(r_s1, text="●", font=("Segoe UI", 9), fg="#ef4444", bg="#0f172a")
-        self.lbl_hw_scanner1.pack(side=tk.LEFT, padx=(0, 4))
+        r_s1 = tk.Frame(f_hw, bg="#0f172a"); r_s1.pack(fill=tk.X, pady=2)
+        self.canvas_hw_s1 = tk.Canvas(r_s1, width=9, height=9, bg="#0f172a", highlightthickness=0)
+        self.canvas_hw_s1.pack(side=tk.LEFT, padx=(0, 6))
+        self.dot_hw_scanner1 = self.canvas_hw_s1.create_oval(1, 1, 8, 8, fill="#ef4444", outline="")
         tk.Label(r_s1, text="Scanner Sisi A", font=("Segoe UI", 8), fg="#cbd5e1", bg="#0f172a").pack(side=tk.LEFT)
 
-        r_s2 = tk.Frame(f_hw, bg="#0f172a"); r_s2.pack(fill=tk.X, pady=1)
-        self.lbl_hw_scanner2 = tk.Label(r_s2, text="●", font=("Segoe UI", 9), fg="#ef4444", bg="#0f172a")
-        self.lbl_hw_scanner2.pack(side=tk.LEFT, padx=(0, 4))
+        r_s2 = tk.Frame(f_hw, bg="#0f172a"); r_s2.pack(fill=tk.X, pady=2)
+        self.canvas_hw_s2 = tk.Canvas(r_s2, width=9, height=9, bg="#0f172a", highlightthickness=0)
+        self.canvas_hw_s2.pack(side=tk.LEFT, padx=(0, 6))
+        self.dot_hw_scanner2 = self.canvas_hw_s2.create_oval(1, 1, 8, 8, fill="#ef4444", outline="")
         tk.Label(r_s2, text="Scanner Sisi B", font=("Segoe UI", 8), fg="#cbd5e1", bg="#0f172a").pack(side=tk.LEFT)
 
-        r_m = tk.Frame(f_hw, bg="#0f172a"); r_m.pack(fill=tk.X, pady=1)
-        self.lbl_hw_modbus = tk.Label(r_m, text="●", font=("Segoe UI", 9), fg="#64748b", bg="#0f172a")
-        self.lbl_hw_modbus.pack(side=tk.LEFT, padx=(0, 4))
+        r_m = tk.Frame(f_hw, bg="#0f172a"); r_m.pack(fill=tk.X, pady=2)
+        self.canvas_hw_m = tk.Canvas(r_m, width=9, height=9, bg="#0f172a", highlightthickness=0)
+        self.canvas_hw_m.pack(side=tk.LEFT, padx=(0, 6))
+        self.dot_hw_modbus = self.canvas_hw_m.create_oval(1, 1, 8, 8, fill="#64748b", outline="")
         tk.Label(r_m, text="Modbus I/O", font=("Segoe UI", 8), fg="#cbd5e1", bg="#0f172a").pack(side=tk.LEFT)
 
-        r_api = tk.Frame(f_hw, bg="#0f172a"); r_api.pack(fill=tk.X, pady=1)
-        self.lbl_hw_api = tk.Label(r_api, text="●", font=("Segoe UI", 9), fg="#10b981", bg="#0f172a")
-        self.lbl_hw_api.pack(side=tk.LEFT, padx=(0, 4))
+        r_api = tk.Frame(f_hw, bg="#0f172a"); r_api.pack(fill=tk.X, pady=2)
+        self.canvas_hw_api = tk.Canvas(r_api, width=9, height=9, bg="#0f172a", highlightthickness=0)
+        self.canvas_hw_api.pack(side=tk.LEFT, padx=(0, 6))
+        self.dot_hw_api = self.canvas_hw_api.create_oval(1, 1, 8, 8, fill="#10b981", outline="")
         tk.Label(r_api, text="API Sistem Utama", font=("Segoe UI", 8), fg="#cbd5e1", bg="#0f172a").pack(side=tk.LEFT)
 
         tk.Label(f_hw, text="v2.0 API Ready", font=("Segoe UI", 7), fg="#475569", bg="#0f172a").pack(anchor="w", pady=(6, 0))
@@ -496,15 +501,15 @@ class OmegaBatchApp:
                 return
             s = status.upper()
             if s in ("RUNNING", "BERJALAN"):
-                self.lbl_system_status_pill.config(text="● BERJALAN", fg="#34d399", bg="#064e3b")
+                self.lbl_system_status_pill.config(text="BERJALAN", fg="#34d399", bg="#064e3b")
             elif s in ("PAUSED", "DIJEDA"):
-                self.lbl_system_status_pill.config(text="❚❚ DIJEDA", fg="#fbbf24", bg="#78350f")
+                self.lbl_system_status_pill.config(text="DIJEDA", fg="#fbbf24", bg="#78350f")
             elif s in ("STOPPED", "BERHENTI"):
-                self.lbl_system_status_pill.config(text="■ BERHENTI", fg="#94a3b8", bg="#334155")
+                self.lbl_system_status_pill.config(text="BERHENTI", fg="#94a3b8", bg="#334155")
             elif s in ("ALARM", "BAHAYA"):
-                self.lbl_system_status_pill.config(text="▲ BAHAYA / ALARAM", fg="#f87171", bg="#7f1d1d")
+                self.lbl_system_status_pill.config(text="BAHAYA / ALARAM", fg="#f87171", bg="#7f1d1d")
             else:
-                self.lbl_system_status_pill.config(text="● SIAP", fg="#10b981", bg="#064e3b")
+                self.lbl_system_status_pill.config(text="SIAP", fg="#10b981", bg="#064e3b")
         if threading.current_thread() is threading.main_thread():
             _apply()
         else:
@@ -517,31 +522,53 @@ class OmegaBatchApp:
         """Update live status dot hardware & API di sidebar secara thread-safe"""
         def _upd():
             # Scanner 1
-            if hasattr(self, 'lbl_hw_scanner1'):
+            if hasattr(self, 'canvas_hw_s1'):
+                col1 = "#10b981" if getattr(self, 'is_listening1', False) else "#ef4444"
+                self.canvas_hw_s1.itemconfig(self.dot_hw_scanner1, fill=col1)
+            elif hasattr(self, 'lbl_hw_scanner1'):
                 col1 = "#10b981" if getattr(self, 'is_listening1', False) else "#ef4444"
                 self.lbl_hw_scanner1.config(fg=col1)
             # Scanner 2
-            if hasattr(self, 'lbl_hw_scanner2'):
+            if hasattr(self, 'canvas_hw_s2'):
+                col2 = "#10b981" if getattr(self, 'is_listening2', False) else "#ef4444"
+                self.canvas_hw_s2.itemconfig(self.dot_hw_scanner2, fill=col2)
+            elif hasattr(self, 'lbl_hw_scanner2'):
                 col2 = "#10b981" if getattr(self, 'is_listening2', False) else "#ef4444"
                 self.lbl_hw_scanner2.config(fg=col2)
             # Printer
-            if hasattr(self, 'lbl_hw_printer'):
+            if hasattr(self, 'canvas_hw_p'):
+                is_sim = getattr(self, 'is_simulation', None) and self.is_simulation.get()
+                is_conn = getattr(self, 'printer_connected', False)
+                col_p = "#10b981" if (is_sim or is_conn) else "#64748b"
+                self.canvas_hw_p.itemconfig(self.dot_hw_printer, fill=col_p)
+            elif hasattr(self, 'lbl_hw_printer'):
                 is_sim = getattr(self, 'is_simulation', None) and self.is_simulation.get()
                 is_conn = getattr(self, 'printer_connected', False)
                 col_p = "#10b981" if (is_sim or is_conn) else "#64748b"
                 self.lbl_hw_printer.config(fg=col_p)
             # Modbus
-            if hasattr(self, 'lbl_hw_modbus'):
+            if hasattr(self, 'canvas_hw_m'):
+                col_m = "#10b981" if getattr(self, 'modbus_connected', False) else "#64748b"
+                self.canvas_hw_m.itemconfig(self.dot_hw_modbus, fill=col_m)
+            elif hasattr(self, 'lbl_hw_modbus'):
                 col_m = "#10b981" if getattr(self, 'modbus_connected', False) else "#64748b"
                 self.lbl_hw_modbus.config(fg=col_m)
             # API Sistem Utama
-            if hasattr(self, 'lbl_hw_api'):
+            if hasattr(self, 'canvas_hw_api'):
                 if not getattr(self, 'api_enabled', None) or not self.api_enabled.get():
-                    col_api = "#64748b" # Abu-abu jika non-aktif
+                    col_api = "#64748b"
                 elif getattr(self.api_manager, 'is_connected', False):
-                    col_api = "#10b981" # Hijau jika online
+                    col_api = "#10b981"
                 else:
-                    col_api = "#f59e0b" # Kuning jika aktif tapi belum/sedang dicek
+                    col_api = "#f59e0b"
+                self.canvas_hw_api.itemconfig(self.dot_hw_api, fill=col_api)
+            elif hasattr(self, 'lbl_hw_api'):
+                if not getattr(self, 'api_enabled', None) or not self.api_enabled.get():
+                    col_api = "#64748b"
+                elif getattr(self.api_manager, 'is_connected', False):
+                    col_api = "#10b981"
+                else:
+                    col_api = "#f59e0b"
                 self.lbl_hw_api.config(fg=col_api)
         if threading.current_thread() is threading.main_thread():
             _upd()
@@ -690,12 +717,12 @@ class OmegaBatchApp:
 
         tk.Label(card_src, text="Sumber Data", font=("Segoe UI", 9, "bold"), fg="#1e293b", bg="#ffffff").pack(side=tk.LEFT, padx=(0, 8))
         
-        btn_load = tk.Button(card_src, text="📂 Pilih Berkas", font=("Segoe UI", 8, "bold"),
+        btn_load = tk.Button(card_src, text="Pilih Berkas", font=("Segoe UI", 8, "bold"),
                              bg="#f8fafc", fg="#1e293b", relief="solid", bd=1, padx=8, pady=3,
                              cursor="hand2", command=self.load_file)
         btn_load.pack(side=tk.LEFT, padx=(0, 4))
 
-        self.btn_api = tk.Button(card_src, text="☁ Tarik API", font=("Segoe UI", 8, "bold"),
+        self.btn_api = tk.Button(card_src, text="Tarik API", font=("Segoe UI", 8, "bold"),
                             bg="#eff6ff", fg="#1d4ed8", activebackground="#dbeafe", activeforeground="#1e40af",
                             relief="solid", bd=1, highlightbackground="#93c5fd", padx=8, pady=3,
                             cursor="hand2", command=self.open_fetch_api_dialog)
@@ -724,7 +751,7 @@ class OmegaBatchApp:
         btn_apply.pack(side=tk.LEFT, padx=6)
 
         # Tombol Web Analytics di sisi kanan atas
-        self.btn_web_ana = tk.Button(card_src, text="Web Analytics ↗", font=("Segoe UI", 8, "bold"),
+        self.btn_web_ana = tk.Button(card_src, text="Analisis Web", font=("Segoe UI", 8, "bold"),
                                      bg="#eff6ff", fg="#2563eb", activebackground="#dbeafe", activeforeground="#1d4ed8",
                                      relief="solid", bd=1, highlightbackground="#bfdbfe", padx=10, pady=2,
                                      cursor="hand2", command=self.open_web_analytics)
@@ -805,7 +832,7 @@ class OmegaBatchApp:
         card_action = tk.Frame(right_pane, bg="#ffffff", relief="solid", bd=1, highlightbackground="#cbd5e1", padx=8, pady=8)
         card_action.pack(fill=tk.X, pady=(0, 6))
 
-        self.btn_batch_print = tk.Button(card_action, text="▶  MULAI CETAK (BATCH)",
+        self.btn_batch_print = tk.Button(card_action, text="MULAI CETAK (BATCH)",
                                          font=("Segoe UI", 10, "bold"), bg="#16a34a", fg="#ffffff",
                                          activebackground="#15803d", activeforeground="#ffffff",
                                          relief="flat", bd=0, pady=8, cursor="hand2",
@@ -815,14 +842,14 @@ class OmegaBatchApp:
         f_action_sub = tk.Frame(card_action, bg="#ffffff")
         f_action_sub.pack(fill=tk.X)
 
-        self.btn_pause_print = tk.Button(f_action_sub, text="❚❚  JEDA",
+        self.btn_pause_print = tk.Button(f_action_sub, text="JEDA",
                                          font=("Segoe UI", 9, "bold"), bg="#d97706", fg="#ffffff",
                                          activebackground="#b45309", activeforeground="#ffffff",
                                          relief="flat", bd=0, pady=6, cursor="hand2",
                                          command=self.toggle_pause_batch, state="disabled")
         self.btn_pause_print.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 3))
 
-        self.btn_stop_print = tk.Button(f_action_sub, text="■  STOP",
+        self.btn_stop_print = tk.Button(f_action_sub, text="STOP",
                                         font=("Segoe UI", 9, "bold"), bg="#dc2626", fg="#ffffff",
                                         activebackground="#b91c1c", activeforeground="#ffffff",
                                         relief="flat", bd=0, pady=6, cursor="hand2",
@@ -834,7 +861,7 @@ class OmegaBatchApp:
         self.card_sim.pack(fill=tk.X)
 
         self.sim_expanded = False
-        self.btn_toggle_sim = tk.Button(self.card_sim, text="▸ Alat Simulasi & Koreksi (Admin)",
+        self.btn_toggle_sim = tk.Button(self.card_sim, text="Alat Simulasi & Koreksi (Admin)",
                                         font=("Segoe UI", 8), fg="#475569", bg="#ffffff",
                                         relief="flat", bd=0, anchor="w", cursor="hand2",
                                         command=self.toggle_sim_panel)
@@ -862,11 +889,11 @@ class OmegaBatchApp:
         """Buka / tutup panel alat simulasi & koreksi admin"""
         if getattr(self, 'sim_expanded', False):
             self.f_sim_body.pack_forget()
-            self.btn_toggle_sim.config(text="▸ Alat Simulasi & Koreksi (Admin)")
+            self.btn_toggle_sim.config(text="Alat Simulasi & Koreksi (Admin)")
             self.sim_expanded = False
         else:
             self.f_sim_body.pack(fill=tk.X, pady=(4, 0))
-            self.btn_toggle_sim.config(text="▾ Alat Simulasi & Koreksi (Admin)")
+            self.btn_toggle_sim.config(text="Alat Simulasi & Koreksi (Admin)")
             self.sim_expanded = True
 
     def draw_progress_gauge(self, processed, total, percent):
@@ -934,7 +961,7 @@ class OmegaBatchApp:
         # --- TOMBOL AKSI HISTORI (Dipack BOTTOM terlebih dahulu) ---
         btn_frame = ttk.Frame(self.tab_history)
         btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(4, 2))
-        self.btn_export_history_csv = ttk.Button(btn_frame, text="📥 EKSPOR DATA MENTAH CSV", command=self.export_history_raw_csv)
+        self.btn_export_history_csv = ttk.Button(btn_frame, text="EKSPOR DATA MENTAH CSV", command=self.export_history_raw_csv)
         self.btn_export_history_csv.pack(side=tk.LEFT, padx=(0, 6))
         ttk.Button(btn_frame, text="BUKA BERKAS EXCEL TERPILIH", command=self.open_selected_history).pack(side=tk.RIGHT)
 
@@ -1119,7 +1146,7 @@ class OmegaBatchApp:
         ttk.Entry(f_s1_net, textvariable=self.scanner1_port, width=6).pack(side=tk.LEFT, padx=3)
         self.btn_conn_s1 = ttk.Button(f_s1_net, text="Connect S1", command=lambda: self.toggle_scanner(1))
         self.btn_conn_s1.pack(side=tk.LEFT, padx=5)
-        self.lbl_status_s1 = tk.Label(f_s1_net, text="○ Terputus", fg="#c0392b", font=("Segoe UI", 8, "bold"))
+        self.lbl_status_s1 = tk.Label(f_s1_net, text="Terputus", fg="#c0392b", font=("Segoe UI", 8, "bold"))
         self.lbl_status_s1.pack(side=tk.LEFT, padx=5)
         
         f_s1_mon = ttk.Frame(box_s1)
@@ -1140,7 +1167,7 @@ class OmegaBatchApp:
         ttk.Entry(f_s2_net, textvariable=self.scanner2_port, width=6).pack(side=tk.LEFT, padx=3)
         self.btn_conn_s2 = ttk.Button(f_s2_net, text="Connect S2", command=lambda: self.toggle_scanner(2))
         self.btn_conn_s2.pack(side=tk.LEFT, padx=5)
-        self.lbl_status_s2 = tk.Label(f_s2_net, text="○ Terputus", fg="#c0392b", font=("Segoe UI", 8, "bold"))
+        self.lbl_status_s2 = tk.Label(f_s2_net, text="Terputus", fg="#c0392b", font=("Segoe UI", 8, "bold"))
         self.lbl_status_s2.pack(side=tk.LEFT, padx=5)
         
         f_s2_mon = ttk.Frame(box_s2)
@@ -1311,7 +1338,7 @@ class OmegaBatchApp:
         row_key = ttk.Frame(self.api_frame)
         row_key.pack(fill=tk.X, pady=2)
         ttk.Label(row_key, text="API Key / Token:", width=18).pack(side=tk.LEFT)
-        self.ent_api_key = ttk.Entry(row_key, textvariable=self.api_key, width=50, show="●")
+        self.ent_api_key = ttk.Entry(row_key, textvariable=self.api_key, width=50, show="*")
         self.ent_api_key.pack(side=tk.LEFT, padx=(0, 6))
 
         self.var_show_api_key = tk.BooleanVar(value=False)
@@ -1320,7 +1347,7 @@ class OmegaBatchApp:
                 self.ent_api_key.config(show="")
                 btn_key_vis.config(text="Sembunyikan")
             else:
-                self.ent_api_key.config(show="●")
+                self.ent_api_key.config(show="*")
                 btn_key_vis.config(text="Tampilkan")
 
         btn_key_vis = tk.Button(
@@ -1376,7 +1403,7 @@ class OmegaBatchApp:
         btn_sample_api = ttk.Button(row_actions, text="Tarik Work Order Sekarang", command=self.open_fetch_api_dialog)
         btn_sample_api.pack(side=tk.LEFT, padx=6)
 
-        btn_schema_api = ttk.Button(row_actions, text="📖 Spesifikasi Payload API", command=self.open_api_contract_dialog)
+        btn_schema_api = ttk.Button(row_actions, text="Spesifikasi Payload API", command=self.open_api_contract_dialog)
         btn_schema_api.pack(side=tk.RIGHT, padx=6)
         
         # --- INFO DEVELOPER ---
@@ -2134,7 +2161,7 @@ class OmegaBatchApp:
                 btn.config(text=f"Disconnect S{scanner_id}" if is_conn else f"Connect S{scanner_id}")
             if lbl:
                 lbl.config(
-                    text="● Terhubung" if is_conn else "○ Terputus",
+                    text="Terhubung" if is_conn else "Terputus",
                     fg="#1e7e34" if is_conn else "#c0392b"
                 )
             self.is_listening = bool(self.is_listening1 or self.is_listening2)
@@ -2901,21 +2928,21 @@ class OmegaBatchApp:
                 msg = msg0 if not ok0 else (msg1 if not ok1 else "Pulsa Coil 0 & 1 RTU berhasil dikirim!")
 
             if success:
-                self.log_msg(f"✓ Test Modbus DO Berhasil: {msg}")
+                self.log_msg(f"[OK] Uji Modbus DO Berhasil: {msg}")
                 messagebox.showinfo(
                     "Test Rejector Berhasil",
                     f"{msg}\n\n"
-                    "📌 PENTING PADA MODBUS SLAVE SIMULATOR:\n"
+                    "[CATATAN PENTING MODBUS SLAVE]:\n"
                     "Pastikan di aplikasi simulator Anda membuka tampilan:\n"
                     "-> '01: COIL STATUS' (Function 01 / Coils 00001 & 00002),\n"
                     "BUKAN 'Holding Registers' (karena Holding Register adalah tabel angka 16-bit, bukan saklar ON/OFF bit)."
                 )
             else:
-                self.log_msg(f"❌ Test Modbus DO Gagal: {msg}")
+                self.log_msg(f"[GAGAL] Uji Modbus DO Gagal: {msg}")
                 messagebox.showerror("Test Rejector Gagal", f"Gagal mengirim sinyal ke Modbus Slave:\n{msg}")
 
         except Exception as e:
-            self.log_msg(f"❌ Exception Test Rejector: {e}")
+            self.log_msg(f"[GAGAL] Kesalahan Uji Rejector: {e}")
             messagebox.showerror("Error", f"Terjadi kesalahan:\n{e}")
 
     def manual_test_alarm(self):
@@ -2942,10 +2969,10 @@ class OmegaBatchApp:
                 databits = self.modbus_databits.get()
                 self.modbus.pulse_coil_rtu(com, baud, parity, stopbits, databits, address=1, duration=1.0, slave_id=slave)
 
-            self.log_msg("✓ Pulsa Tower Lamp Merah (DO 1) berhasil dikirim (durasi 1.0 detik).")
+            self.log_msg("[OK] Pulsa Tower Lamp Merah (DO 1) berhasil dikirim (durasi 1.0 detik).")
             messagebox.showinfo("Test Alarm Lampu", "Sinyal pulsa Tower Lamp Merah / Alarm (DO 1) berhasil dikirim ke Modbus!")
         except Exception as e:
-            self.log_msg(f"❌ Error test alarm: {e}")
+            self.log_msg(f"[GAGAL] Error uji alarm: {e}")
             messagebox.showerror("Error", f"Gagal mengirim sinyal alarm:\n{e}")
 
     # ==========================================
@@ -3245,7 +3272,7 @@ class OmegaBatchApp:
         except Exception:
             timeout_sec = 5.0
 
-        self.api_status_text.set("⟳ Menghubungkan...")
+        self.api_status_text.set("Menghubungkan...")
         if hasattr(self, 'lbl_api_status'):
             self.lbl_api_status.config(fg="#f59e0b", bg="#fef3c7")
         self.log_msg(f"[API] Menguji koneksi HTTP ke Sistem Utama: {base_url}...")
@@ -3254,7 +3281,7 @@ class OmegaBatchApp:
             success, msg, latency = self.api_manager.test_connection(base_url, api_key, timeout_sec)
             def _on_done():
                 if success:
-                    self.api_status_text.set(f"● Online ({latency:.0f} ms)")
+                    self.api_status_text.set(f"Terhubung ({latency:.0f} ms)")
                     if hasattr(self, 'lbl_api_status'):
                         self.lbl_api_status.config(fg="#10b981", bg="#ecfdf5")
                     self.log_msg(f"[API] Terhubung ke Sistem Utama! Latensi: {latency:.1f} ms. {msg}")
@@ -3267,7 +3294,7 @@ class OmegaBatchApp:
                         parent=self.root
                     )
                 else:
-                    self.api_status_text.set("○ Offline / Gagal")
+                    self.api_status_text.set("Terputus / Gagal")
                     if hasattr(self, 'lbl_api_status'):
                         self.lbl_api_status.config(fg="#ef4444", bg="#fef2f2")
                     self.log_msg(f"[API GAGAL] {msg}")
@@ -3478,7 +3505,7 @@ class OmegaBatchApp:
         lbl_status_fetch = ttk.Label(tb_f, text="Menyiapkan koneksi...", font=("Segoe UI", 9, "italic"))
         lbl_status_fetch.pack(side=tk.LEFT)
 
-        btn_refresh = ttk.Button(tb_f, text="⟳ Ambil Ulang Data API")
+        btn_refresh = ttk.Button(tb_f, text="Ambil Ulang Data API")
         btn_refresh.pack(side=tk.RIGHT)
 
         # Treeview Daftar WO
@@ -3523,14 +3550,14 @@ class OmegaBatchApp:
 
         btn_cfg = ttk.Button(
             bottom_f,
-            text="⚙ Konfigurasi API",
+            text="Konfigurasi API",
             command=lambda: [win.destroy(), self.switch_nav("conn")]
         )
         btn_cfg.pack(side=tk.LEFT)
 
         btn_fallback = ttk.Button(
             bottom_f,
-            text="📂 Gunakan File Excel (Fallback)",
+            text="Gunakan Berkas Excel (Cadangan)",
             command=lambda: [win.destroy(), self.load_file()]
         )
         btn_fallback.pack(side=tk.LEFT, padx=8)
@@ -3540,7 +3567,7 @@ class OmegaBatchApp:
 
         btn_load_wo = tk.Button(
             bottom_f,
-            text="✔ Muat Work Order ke Antrean Produksi",
+            text="Muat Work Order ke Antrean Produksi",
             font=("Segoe UI", 9, "bold"),
             bg="#16a34a",
             fg="#ffffff",
@@ -3591,7 +3618,7 @@ class OmegaBatchApp:
         wo_tree.bind("<Double-1>", lambda e: _do_load_selected())
 
         def _fetch_data():
-            lbl_status_fetch.config(text="⟳ Menghubungi Sistem Utama via REST API...")
+            lbl_status_fetch.config(text="Menghubungi Sistem Utama via REST API...")
             btn_refresh.config(state=tk.DISABLED)
             btn_load_wo.config(state=tk.DISABLED)
             wo_tree.delete(*wo_tree.get_children())
@@ -3626,7 +3653,7 @@ class OmegaBatchApp:
                     btn_refresh.config(state=tk.NORMAL)
                     if success and isinstance(data_or_msg, list) and len(data_or_msg) > 0:
                         count = len(data_or_msg)
-                        lbl_status_fetch.config(text=f"✔ Ditemukan {count} Work Order aktif dari Sistem Utama.")
+                        lbl_status_fetch.config(text=f"Ditemukan {count} Work Order aktif dari Sistem Utama.")
                         for idx, wo in enumerate(data_or_msg):
                             node_id = f"wo_{idx}"
                             fetched_orders_map[node_id] = wo
@@ -3651,7 +3678,7 @@ class OmegaBatchApp:
                         _on_item_select(None)
                     else:
                         err_text = str(data_or_msg) if not success else "Sistem Utama tidak memiliki data Work Order aktif saat ini."
-                        lbl_status_fetch.config(text=f"✖ {err_text}")
+                        lbl_status_fetch.config(text=f"{err_text}")
                         lbl_detail_wo.config(
                             text=f"Keterangan: {err_text}\n"
                             f"Pastikan simulator mock_erp_server.py sedang aktif di port 8000, atau gunakan tombol 'Gunakan File Excel' di bawah."
@@ -3727,7 +3754,7 @@ class OmegaBatchApp:
             self.root.clipboard_append(doc_content)
             messagebox.showinfo("Tersalin", "Spesifikasi kontrak API berhasil disalin ke clipboard!", parent=win)
 
-        ttk.Button(bot_f, text="📋 Salin Spesifikasi ke Clipboard", command=_copy_clipboard).pack(side=tk.LEFT)
+        ttk.Button(bot_f, text="Salin Spesifikasi ke Clipboard", command=_copy_clipboard).pack(side=tk.LEFT)
         ttk.Button(bot_f, text="Tutup", command=win.destroy).pack(side=tk.RIGHT)
 
     # ==========================================
@@ -3748,16 +3775,16 @@ class OmegaBatchApp:
         tb_users = ttk.Frame(lf_users)
         tb_users.pack(fill=tk.X, pady=(0, 6))
 
-        self.btn_master_add_user = ttk.Button(tb_users, text="➕ Tambah Pengguna Baru", command=self.open_add_user_dialog)
+        self.btn_master_add_user = ttk.Button(tb_users, text="Tambah Pengguna Baru", command=self.open_add_user_dialog)
         self.btn_master_add_user.pack(side=tk.LEFT, padx=(0, 5))
 
-        self.btn_master_edit_user = ttk.Button(tb_users, text="✏️ Ubah Pengguna Terpilih", command=self.open_edit_user_dialog)
+        self.btn_master_edit_user = ttk.Button(tb_users, text="Ubah Pengguna Terpilih", command=self.open_edit_user_dialog)
         self.btn_master_edit_user.pack(side=tk.LEFT, padx=(0, 5))
 
-        self.btn_master_del_user = ttk.Button(tb_users, text="🗑️ Hapus Pengguna", command=self.delete_selected_user)
+        self.btn_master_del_user = ttk.Button(tb_users, text="Hapus Pengguna", command=self.delete_selected_user)
         self.btn_master_del_user.pack(side=tk.LEFT, padx=(0, 5))
 
-        ttk.Button(tb_users, text="🔄 Segarkan Data", command=self.load_users_table).pack(side=tk.RIGHT)
+        ttk.Button(tb_users, text="Segarkan Data", command=self.load_users_table).pack(side=tk.RIGHT)
 
         # Tabel Pengguna (Treeview)
         cols = ("username", "name", "role", "pages", "features")
@@ -3810,7 +3837,7 @@ class OmegaBatchApp:
             b = ttk.Button(row_input, text=f"{d}H", width=4, command=lambda val=d: self.retention_days_var.set(str(val)))
             b.pack(side=tk.LEFT, padx=2)
 
-        self.btn_save_retention = ttk.Button(row_input, text="💾 Simpan Masa Simpan", command=self.save_retention_setting)
+        self.btn_save_retention = ttk.Button(row_input, text="Simpan Masa Simpan", command=self.save_retention_setting)
         self.btn_save_retention.pack(side=tk.RIGHT, padx=5)
 
         # Baris Pemeliharaan & Ekspor Master Kupon
@@ -3819,10 +3846,10 @@ class OmegaBatchApp:
 
         ttk.Label(row_maint, text="Tindakan Pemeliharaan Riwayat:", font=("Segoe UI", 8, "bold"), foreground="#1c446c").pack(side=tk.LEFT, padx=(0, 10))
 
-        self.btn_clean_logs = ttk.Button(row_maint, text="🧹 Bersihkan Catatan Log Tua Sekarang", command=self.run_manual_log_cleanup)
+        self.btn_clean_logs = ttk.Button(row_maint, text="Bersihkan Catatan Log Tua Sekarang", command=self.run_manual_log_cleanup)
         self.btn_clean_logs.pack(side=tk.LEFT, padx=(0, 6))
 
-        self.btn_export_all_coupons = ttk.Button(row_maint, text="📥 Ekspor Master Kupon Tercetak (.csv)", command=self.export_raw_coupons_csv_gui)
+        self.btn_export_all_coupons = ttk.Button(row_maint, text="Ekspor Master Kupon (.csv)", command=self.export_raw_coupons_csv_gui)
         self.btn_export_all_coupons.pack(side=tk.LEFT, padx=6)
 
         # Inisialisasi data tabel

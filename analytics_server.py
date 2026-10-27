@@ -819,23 +819,12 @@ class AnalyticsServer:
     <!-- Navigasi Atas -->
     <nav class="navbar">
         <div class="nav-brand">
-            <div class="brand-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                    <line x1="8" y1="21" x2="16" y2="21"></line>
-                    <line x1="12" y1="17" x2="12" y2="21"></line>
-                </svg>
-            </div>
+            
             <h1>ANALISIS PRODUKSI OMEGA MX</h1>
             <span class="badge-dept">RUANG MANAJEMEN</span>
         </div>
         <div class="nav-right">
-            <button class="btn-fullscreen" onclick="toggleFullScreen()" title="Tampilkan Layar Penuh">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-                </svg>
-                Layar Penuh (F11)
-            </button>
+            <button class="btn-fullscreen" onclick="toggleFullScreen()" title="Tampilkan Layar Penuh">Layar Penuh (F11)</button>
             <span class="clock-display" id="clockText">--:--:-- WIB</span>
             <span class="badge-live" id="badgeLive">
                 <span class="dot-status dot-green" id="dotLive"></span>
@@ -854,7 +843,7 @@ class AnalyticsServer:
                     <span class="dot-status dot-green"></span>
                     <span>Kondisi Lapangan Terkini</span>
                 </div>
-                <span class="panel-badge-tag tag-realtime">Telemetri Langsung &bull; Siklus Aktif</span>
+                <span class="panel-badge-tag tag-realtime">Telemetri Langsung - Siklus Aktif</span>
             </div>
 
             <div class="panel-content">
@@ -896,22 +885,22 @@ class AnalyticsServer:
                             <span>Kepala Cetak:</span>
                             <span id="hw_printer_text" class="hw-val-offline">Terputus</span>
                         </div>
-                        <span>&bull;</span>
+                        <span>-</span>
                         <div class="hw-item">
                             <span>Pemindai Sisi A:</span>
                             <span id="hw_s1_text" class="hw-val-offline">Terputus</span>
                         </div>
-                        <span>&bull;</span>
+                        <span>-</span>
                         <div class="hw-item">
                             <span>Pemindai Sisi B:</span>
                             <span id="hw_s2_text" class="hw-val-offline">Terputus</span>
                         </div>
-                        <span>&bull;</span>
+                        <span>-</span>
                         <div class="hw-item">
                             <span>Modbus I/O:</span>
                             <span id="hw_modbus_text" class="hw-val-offline">Siaga</span>
                         </div>
-                        <span>&bull;</span>
+                        <span>-</span>
                         <div class="hw-item">
                             <span>API Sistem Utama:</span>
                             <span id="hw_api_text" class="hw-val-offline">Siap</span>
@@ -992,16 +981,8 @@ class AnalyticsServer:
         <!-- PANEL UTAMA 2: REKAPITULASI PRODUKSI TERKUMPUL (KANAN) -->
         <section class="master-panel panel-history">
             <div class="panel-header-bar header-bar-history">
-                <div class="panel-header-title">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                        <line x1="16" y1="2" x2="16" y2="6"></line>
-                        <line x1="8" y1="2" x2="8" y2="6"></line>
-                        <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                    <span>Rekapitulasi Produksi Terkumpul</span>
-                </div>
-                <span class="panel-badge-tag tag-history">Basis Data &bull; 7 Hari Terakhir</span>
+                <div class="panel-header-title"><span>Rekapitulasi Produksi Terkumpul</span></div>
+                <span class="panel-badge-tag tag-history">Basis Data - 7 Hari Terakhir</span>
             </div>
 
             <div class="panel-content">
@@ -1042,14 +1023,7 @@ class AnalyticsServer:
                     <div class="table-header-sm">
                         <span>Riwayat Batch Produksi Terkini</span>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <a href="/api/v1/export-raw-csv" class="btn-download-csv" download="riwayat_produksi_mentah.csv" title="Unduh seluruh data riwayat dalam format CSV">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="7 10 12 15 17 10"></polyline>
-                                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                                </svg>
-                                <span>Unduh Data Mentah (CSV)</span>
-                            </a>
+                            <a href="/api/v1/export-raw-csv" class="btn-download-csv" download="riwayat_produksi_mentah.csv" title="Unduh seluruh data riwayat dalam format CSV">Unduh Data Mentah (CSV)</a>
                             <span id="record_count" style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">-</span>
                         </div>
                     </div>

@@ -85,7 +85,7 @@ class LoginDialog:
         lbl_pass.pack(anchor=tk.W, pady=(0, 3))
 
         self.var_pass = tk.StringVar()
-        self.ent_password = ttk.Entry(container, textvariable=self.var_pass, show="●", font=("Segoe UI", 9))
+        self.ent_password = ttk.Entry(container, textvariable=self.var_pass, show="*", font=("Segoe UI", 9))
         self.ent_password.pack(fill=tk.X, pady=(0, 4), ipady=2)
         self.ent_password.bind("<Return>", lambda e: self.do_login())
 
@@ -132,7 +132,7 @@ class LoginDialog:
         if self.var_show_pass.get():
             self.ent_password.config(show="")
         else:
-            self.ent_password.config(show="●")
+            self.ent_password.config(show="*")
 
     def do_login(self):
         username = self.var_user.get().strip()
@@ -220,21 +220,21 @@ class ChangePasswordDialog:
         # Password Lama (hanya wajib jika mengubah akun sendiri dan bukan bypass admin)
         tk.Label(frame, text="Password Lama:", font=("Segoe UI", 9), fg="#24476b", bg="#ffffff").grid(row=row, column=0, sticky="w", pady=4)
         self.var_old_pass = tk.StringVar()
-        self.ent_old = ttk.Entry(frame, textvariable=self.var_old_pass, show="●", width=20, font=("Segoe UI", 9))
+        self.ent_old = ttk.Entry(frame, textvariable=self.var_old_pass, show="*", width=20, font=("Segoe UI", 9))
         self.ent_old.grid(row=row, column=1, sticky="w", pady=4)
         row += 1
 
         # Password Baru
         tk.Label(frame, text="Password Baru:", font=("Segoe UI", 9), fg="#24476b", bg="#ffffff").grid(row=row, column=0, sticky="w", pady=4)
         self.var_new_pass = tk.StringVar()
-        self.ent_new = ttk.Entry(frame, textvariable=self.var_new_pass, show="●", width=20, font=("Segoe UI", 9))
+        self.ent_new = ttk.Entry(frame, textvariable=self.var_new_pass, show="*", width=20, font=("Segoe UI", 9))
         self.ent_new.grid(row=row, column=1, sticky="w", pady=4)
         row += 1
 
         # Konfirmasi Password Baru
         tk.Label(frame, text="Ulangi Password:", font=("Segoe UI", 9), fg="#24476b", bg="#ffffff").grid(row=row, column=0, sticky="w", pady=4)
         self.var_conf_pass = tk.StringVar()
-        self.ent_conf = ttk.Entry(frame, textvariable=self.var_conf_pass, show="●", width=20, font=("Segoe UI", 9))
+        self.ent_conf = ttk.Entry(frame, textvariable=self.var_conf_pass, show="*", width=20, font=("Segoe UI", 9))
         self.ent_conf.grid(row=row, column=1, sticky="w", pady=4)
         row += 1
 
