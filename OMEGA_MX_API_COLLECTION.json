@@ -1,0 +1,168 @@
+{
+  "info": {
+    "name": "Omega MX v2.0 - REST API Testing Collection",
+    "description": "Koleksi Postman untuk pengujian API dua arah antara Omega MX dan Sistem Utama Pabrik (ERP / MES)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Upstream ERP Server (Port 8000)",
+      "item": [
+        {
+          "name": "Health Check ERP",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:8000/api/v1/health",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "8000",
+              "path": ["api", "v1", "health"]
+            }
+          }
+        },
+        {
+          "name": "Tarik Work Orders Aktif (Inbound)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer TOKEN_RAHASIA_ERP_2026",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://127.0.0.1:8000/api/v1/work-orders/active",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "8000",
+              "path": ["api", "v1", "work-orders", "active"]
+            }
+          }
+        },
+        {
+          "name": "Kirim Ringkasan Batch Selesai (Outbound)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer TOKEN_RAHASIA_ERP_2026"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"work_order_id\": \"SPK-2026-10-001\",\n  \"source_filename\": \"API_SPK-2026-10-001_SKU-IND-882\",\n  \"batch_start_time\": \"2026-10-27 08:00:15\",\n  \"batch_end_time\": \"2026-10-27 08:35:42\",\n  \"total_target\": 500,\n  \"total_judged\": 500,\n  \"total_ok\": 498,\n  \"total_ng\": 2,\n  \"ng_rate_pct\": 0.4,\n  \"operator\": \"Administrator\",\n  \"records_count\": 500\n}"
+            },
+            "url": {
+              "raw": "http://127.0.0.1:8000/api/v1/production/batch-summary",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "8000",
+              "path": ["api", "v1", "production", "batch-summary"]
+            }
+          }
+        },
+        {
+          "name": "Kirim Telemetri QC Box (Outbound Real-time)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"work_order_id\": \"SPK-2026-10-001\",\n  \"box_no\": 1,\n  \"sku\": \"SKU-IND-882\",\n  \"qr\": \"008820001\",\n  \"matl_code\": \"MAT-KARTON-A\",\n  \"status\": \"OK\",\n  \"scanner1\": \"008820001\",\n  \"scanner2\": \"008820001\",\n  \"timestamp\": \"2026-10-27 08:02:15\"\n}"
+            },
+            "url": {
+              "raw": "http://127.0.0.1:8000/api/v1/production/qc-box",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "8000",
+              "path": ["api", "v1", "production", "qc-box"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Embedded Engine Omega MX (Port 5022)",
+      "item": [
+        {
+          "name": "Health Check Omega MX",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:5022/api/v1/health",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "5022",
+              "path": ["api", "v1", "health"]
+            }
+          }
+        },
+        {
+          "name": "Live Status Telemetry Mesin",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:5022/api/v1/status",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "5022",
+              "path": ["api", "v1", "status"]
+            }
+          }
+        },
+        {
+          "name": "Riwayat Batch Lokal",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:5022/api/v1/history",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "5022",
+              "path": ["api", "v1", "history"]
+            }
+          }
+        },
+        {
+          "name": "Push Work Order Baru ke Mesin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"work_order_id\": \"SPK-PUSH-9901\",\n  \"sku_code\": \"SKU-IND-882\",\n  \"sku_name\": \"Premium Tea Box 250gr\",\n  \"material_code\": \"MAT-KARTON-A\",\n  \"batch_no\": \"B2610A\",\n  \"target_qty\": 5,\n  \"items\": [\n    {\"No\": 1, \"SKU\": \"SKU-IND-882\", \"QR\": \"008820001\", \"Material Code\": \"MAT-KARTON-A\"},\n    {\"No\": 2, \"SKU\": \"SKU-IND-882\", \"QR\": \"008820002\", \"Material Code\": \"MAT-KARTON-A\"}\n  ]\n}"
+            },
+            "url": {
+              "raw": "http://127.0.0.1:5022/api/v1/work-order/push",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "5022",
+              "path": ["api", "v1", "work-order", "push"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
