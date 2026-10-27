@@ -22,6 +22,7 @@ from modbus_io import ModbusController
 from data_manager import DataManager
 from auth_manager import AuthManager
 from login_dialog import LoginDialog, ChangePasswordDialog
+from api_manager import APIManager
 # --------------------------------
 
 def resource_path(relative_path):
@@ -61,19 +62,20 @@ class OmegaBatchApp:
         self.modbus = ModbusController()
         self.data_manager = DataManager()
         self.auth_manager = AuthManager()
+        self.api_manager = APIManager() # <--- Integrasi API Sistem Utama (v2.0)
         self.current_user = None
         # --- FIX IKON TASKBAR (AppUserModelID) ---
         try:
             from ctypes import windll
             # ID ini bebas, formatnya: Perusahaan.Produk.Subproduk.Versi
-            myappid = 'PT_SMARTEK.OmegaMX.System.v.5' 
+            myappid = 'PT_SMARTEK.OmegaMX.System.v.2.0' 
             windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except Exception as e:
             print(f"Gagal mengatur AppUserModelID: {e}")
             
         self.root = root
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.root.title("Omega MX - Batch Printing & QC System")
+        self.root.title("Omega MX - Batch Printing & Dual-QC System (v2.0 API Ready)")
         
         # ... kode iconbitmap yang sudah ada ...
         try:
@@ -223,6 +225,20 @@ class OmegaBatchApp:
                 
         self.is_io_running = False # Flag monitoring
         
+        # --- API Integration Variables (v2.0) ---
+        self.api_enabled = tk.BooleanVar(value=True)
+        self.api_base_url = tk.StringVar(value="http://192.168.1.50:8000/api/v1")
+        self.api_key = tk.StringVar(value="")
+        self.api_endpoint_work_orders = tk.StringVar(value="/work-orders/active")
+        self.api_endpoint_submit_batch = tk.StringVar(value="/production/batch-summary")
+        self.api_endpoint_submit_box = tk.StringVar(value="/production/qc-box")
+        self.api_timeout = tk.StringVar(value="5")
+        self.api_auto_sync_batch = tk.BooleanVar(value=True)
+        self.api_auto_sync_box = tk.BooleanVar(value=False)
+        self.api_status_text = tk.StringVar(value="○ Belum Diuji")
+        self.current_work_order_id = ""
+        self.active_sys_status = "READY"
+        
         # --- Layout Coordinates ---
         self.coords = {
             "qr":   {"x": tk.StringVar(value="450"),   "y": tk.StringVar(value="3"),   "w": tk.StringVar(value="271"), "h": tk.StringVar(value="271")},
@@ -239,70 +255,14 @@ class OmegaBatchApp:
         self.load_hardware_config()
 
         self.setup_ui()
-        self.log_msg("Aplikasi Omega MX Designer & QC System dimulai.")
+        self.log_msg("Aplikasi Omega MX Designer & QC System dimulai (v2.0 API Ready).")
+
+        # Memulai Embedded REST API & Analytics Server (Port 5022) di background thread
+        self.start_api_server()
 
         # Sembunyikan window utama dan tampilkan Login Dialog di awal
         self.root.withdraw()
         LoginDialog(self.root, self.auth_manager, on_login_success=self.on_initial_login_success, is_switch_user=False)
-
-    def load_hardware_config(self):
-        """Memuat konfigurasi hardware dari data/config.json (S3)"""
-        cfg = self.data_manager.load_config()
-        if not cfg:
-            return
-        if "conn_mode" in cfg: self.conn_mode.set(cfg["conn_mode"])
-        if "printer_ip" in cfg: self.ip_addr.set(cfg["printer_ip"])
-        if "printer_port" in cfg: self.ip_port.set(cfg["printer_port"])
-        if "scanner1_ip" in cfg: self.scanner1_ip.set(cfg["scanner1_ip"])
-        if "scanner1_port" in cfg: self.scanner1_port.set(cfg["scanner1_port"])
-        if "scanner2_ip" in cfg: self.scanner2_ip.set(cfg["scanner2_ip"])
-        if "scanner2_port" in cfg: self.scanner2_port.set(cfg["scanner2_port"])
-        if "dual_scan_timeout_ms" in cfg: self.dual_scan_timeout_var.set(str(cfg["dual_scan_timeout_ms"]))
-        if "pusher_delay_ms" in cfg: self.pusher_delay_var.set(str(cfg["pusher_delay_ms"]))
-        if "pusher_pulse_ms" in cfg: self.pusher_pulse_var.set(str(cfg["pusher_pulse_ms"]))
-        if "modbus_ip" in cfg: self.modbus_ip.set(cfg["modbus_ip"])
-        if "modbus_port" in cfg: self.modbus_port.set(cfg["modbus_port"])
-        if "modbus_com" in cfg: self.modbus_com.set(cfg["modbus_com"])
-        if "modbus_baud" in cfg: self.modbus_baud.set(cfg["modbus_baud"])
-        if "modbus_parity" in cfg: self.modbus_parity.set(cfg["modbus_parity"])
-        if "modbus_stopbits" in cfg: self.modbus_stopbits.set(cfg["modbus_stopbits"])
-        if "modbus_databits" in cfg: self.modbus_databits.set(cfg["modbus_databits"])
-        if "slave_id" in cfg:
-            try: self.slave_id.set(int(cfg["slave_id"]))
-            except Exception: pass
-
-    def save_hardware_config(self, show_msg=False):
-        """Menyimpan konfigurasi hardware ke data/config.json secara aman (S3)"""
-        cfg = {
-            "conn_mode": self.conn_mode.get(),
-            "printer_ip": self.ip_addr.get(),
-            "printer_port": self.ip_port.get(),
-            "scanner1_ip": self.scanner1_ip.get(),
-            "scanner1_port": self.scanner1_port.get(),
-            "scanner2_ip": self.scanner2_ip.get(),
-            "scanner2_port": self.scanner2_port.get(),
-            "dual_scan_timeout_ms": self.dual_scan_timeout_var.get(),
-            "pusher_delay_ms": self.pusher_delay_var.get(),
-            "pusher_pulse_ms": self.pusher_pulse_var.get(),
-            "modbus_mode": getattr(self, 'modbus_mode', tk.StringVar(value='TCP')).get() if hasattr(self, 'modbus_mode') else 'TCP',
-            "modbus_ip": self.modbus_ip.get(),
-            "modbus_port": self.modbus_port.get(),
-            "modbus_com": self.modbus_com.get(),
-            "modbus_baud": self.modbus_baud.get(),
-            "modbus_parity": self.modbus_parity.get(),
-            "modbus_stopbits": self.modbus_stopbits.get(),
-            "modbus_databits": self.modbus_databits.get(),
-            "slave_id": self.slave_id.get()
-        }
-        ok = self.data_manager.save_config(cfg)
-        if ok:
-            user = self.current_user.get('username', 'user') if self.current_user else 'user'
-            self.log_msg(f"[CONFIG] Konfigurasi perangkat berhasil disimpan permanen oleh '{user}'.")
-            if show_msg:
-                messagebox.showinfo("Konfigurasi Tersimpan", "Konfigurasi IP, Port, dan Timing berhasil disimpan permanen ke data/config.json.")
-        elif show_msg:
-            messagebox.showerror("Error", "Gagal menyimpan konfigurasi ke file.")
-        return ok
 
     # ==========================================
     # 1. USER INTERFACE (UI) SETUP & AUTH
@@ -328,7 +288,7 @@ class OmegaBatchApp:
             print(f"Gagal memuat logo footer: {e}")
 
         # 2. Tampilkan Label Versi di sebelah logo Smartek (Kiri Bawah)
-        ttk.Label(footer_frame, text="© 2026 SMARTEK SOFTWARE | Developed by WLDN | Version 5.0 Stable", font=("Segoe UI", 8, "italic")).pack(side=tk.LEFT)
+        ttk.Label(footer_frame, text="© 2026 SMARTEK SOFTWARE | Developed by WLDN | Version 2.0 API Ready", font=("Segoe UI", 8, "italic")).pack(side=tk.LEFT)
 
         # 3. Status Sistem & User Aktif di sebelah Kanan Bawah
         self.lbl_footer_user = ttk.Label(footer_frame, text="User: -", font=("Segoe UI", 8, "italic"), foreground="#333333")
@@ -348,7 +308,7 @@ class OmegaBatchApp:
         brand_frame = tk.Frame(self.top_bar, bg="#1e293b")
         brand_frame.pack(side=tk.LEFT, padx=14, pady=5)
         tk.Label(brand_frame, text="Ω OMEGA MX", font=("Segoe UI", 11, "bold"), fg="#ffffff", bg="#1e293b").pack(side=tk.LEFT)
-        tk.Label(brand_frame, text=" | Batch Printing & Dual-QC System", font=("Segoe UI", 9), fg="#94a3b8", bg="#1e293b").pack(side=tk.LEFT)
+        tk.Label(brand_frame, text=" | Batch Printing & Dual-QC System (v2.0 API)", font=("Segoe UI", 9), fg="#94a3b8", bg="#1e293b").pack(side=tk.LEFT)
 
         # Live System Status Pill in Center
         self.lbl_system_status_pill = tk.Label(
@@ -456,7 +416,12 @@ class OmegaBatchApp:
         self.lbl_hw_modbus.pack(side=tk.LEFT, padx=(0, 4))
         tk.Label(r_m, text="Modbus I/O", font=("Segoe UI", 8), fg="#cbd5e1", bg="#0f172a").pack(side=tk.LEFT)
 
-        tk.Label(f_hw, text="v5.0 Stable Pro", font=("Segoe UI", 7), fg="#475569", bg="#0f172a").pack(anchor="w", pady=(6, 0))
+        r_api = tk.Frame(f_hw, bg="#0f172a"); r_api.pack(fill=tk.X, pady=1)
+        self.lbl_hw_api = tk.Label(r_api, text="●", font=("Segoe UI", 9), fg="#10b981", bg="#0f172a")
+        self.lbl_hw_api.pack(side=tk.LEFT, padx=(0, 4))
+        tk.Label(r_api, text="API Sistem Utama", font=("Segoe UI", 8), fg="#cbd5e1", bg="#0f172a").pack(side=tk.LEFT)
+
+        tk.Label(f_hw, text="v2.0 API Ready", font=("Segoe UI", 7), fg="#475569", bg="#0f172a").pack(anchor="w", pady=(6, 0))
 
         # Objek Kompatibilitas Notebook
         self.notebook = NotebookCompat(self)
@@ -516,6 +481,7 @@ class OmegaBatchApp:
 
     def set_system_status(self, status):
         """Update indikator pill status sistem di bagian tengah top bar secara thread-safe"""
+        self.active_sys_status = status.upper()
         def _apply():
             if not hasattr(self, 'lbl_system_status_pill'):
                 return
@@ -539,7 +505,7 @@ class OmegaBatchApp:
                 pass
 
     def update_hardware_indicators(self):
-        """Update live status dot hardware di sidebar secara thread-safe"""
+        """Update live status dot hardware & API di sidebar secara thread-safe"""
         def _upd():
             # Scanner 1
             if hasattr(self, 'lbl_hw_scanner1'):
@@ -559,6 +525,15 @@ class OmegaBatchApp:
             if hasattr(self, 'lbl_hw_modbus'):
                 col_m = "#10b981" if getattr(self, 'modbus_connected', False) else "#64748b"
                 self.lbl_hw_modbus.config(fg=col_m)
+            # API Sistem Utama
+            if hasattr(self, 'lbl_hw_api'):
+                if not getattr(self, 'api_enabled', None) or not self.api_enabled.get():
+                    col_api = "#64748b" # Abu-abu jika non-aktif
+                elif getattr(self.api_manager, 'is_connected', False):
+                    col_api = "#10b981" # Hijau jika online
+                else:
+                    col_api = "#f59e0b" # Kuning jika aktif tapi belum/sedang dicek
+                self.lbl_hw_api.config(fg=col_api)
         if threading.current_thread() is threading.main_thread():
             _upd()
         else:
@@ -693,9 +668,15 @@ class OmegaBatchApp:
         btn_load = tk.Button(card_src, text="📂 Load File", font=("Segoe UI", 8, "bold"),
                              bg="#f8fafc", fg="#1e293b", relief="solid", bd=1, padx=8, pady=3,
                              cursor="hand2", command=self.load_file)
-        btn_load.pack(side=tk.LEFT, padx=(0, 6))
+        btn_load.pack(side=tk.LEFT, padx=(0, 4))
 
-        self.lbl_file_chip = tk.Label(card_src, text="Belum ada file dipilih", font=("Segoe UI", 8),
+        btn_api = tk.Button(card_src, text="☁ Tarik API", font=("Segoe UI", 8, "bold"),
+                            bg="#eff6ff", fg="#1d4ed8", activebackground="#dbeafe", activeforeground="#1e40af",
+                            relief="solid", bd=1, highlightbackground="#93c5fd", padx=8, pady=3,
+                            cursor="hand2", command=self.open_fetch_api_dialog)
+        btn_api.pack(side=tk.LEFT, padx=(0, 8))
+
+        self.lbl_file_chip = tk.Label(card_src, text="Belum ada data dipilih", font=("Segoe UI", 8),
                                       fg="#0f766e", bg="#ccfbf1", relief="solid", bd=1, padx=8, pady=2)
         self.lbl_file_chip.pack(side=tk.LEFT, padx=(0, 10))
 
@@ -958,7 +939,7 @@ class OmegaBatchApp:
 
             
     def load_hardware_config(self):
-        """Memuat konfigurasi hardware yang tersimpan dari data/config.json (S3)"""
+        """Memuat konfigurasi hardware & API yang tersimpan dari data/config.json (S3)"""
         cfg = self.data_manager.load_config()
         if not cfg:
             return
@@ -993,11 +974,24 @@ class OmegaBatchApp:
             if "modbus_stopbits" in cfg: self.modbus_stopbits.set(cfg["modbus_stopbits"])
             if "modbus_serial_mode" in cfg: self.modbus_serial_mode.set(cfg["modbus_serial_mode"])
             if "slave_id" in cfg: self.slave_id.set(int(cfg["slave_id"]))
+
+            # API Sistem Utama (v2.0)
+            if "api_enabled" in cfg: self.api_enabled.set(bool(cfg["api_enabled"]))
+            if "api_base_url" in cfg: self.api_base_url.set(str(cfg["api_base_url"]))
+            if "api_key" in cfg: self.api_key.set(str(cfg["api_key"]))
+            if "api_endpoint_work_orders" in cfg: self.api_endpoint_work_orders.set(str(cfg["api_endpoint_work_orders"]))
+            if "api_endpoint_submit_batch" in cfg: self.api_endpoint_submit_batch.set(str(cfg["api_endpoint_submit_batch"]))
+            if "api_endpoint_submit_box" in cfg: self.api_endpoint_submit_box.set(str(cfg["api_endpoint_submit_box"]))
+            if "api_timeout" in cfg: self.api_timeout.set(str(cfg["api_timeout"]))
+            if "api_auto_sync_batch" in cfg: self.api_auto_sync_batch.set(bool(cfg["api_auto_sync_batch"]))
+            if "api_auto_sync_box" in cfg: self.api_auto_sync_box.set(bool(cfg["api_auto_sync_box"]))
+            if hasattr(self, 'api_manager'):
+                self.api_manager.update_config(cfg)
         except Exception as e:
             print(f"Error applying config: {e}")
 
     def save_hardware_config(self, show_msg=False):
-        """Menyimpan konfigurasi hardware ke data/config.json (S3)"""
+        """Menyimpan konfigurasi hardware & API ke data/config.json (S3)"""
         cfg = {
             "printer_ip": self.ip_addr.get(),
             "printer_port": self.ip_port.get(),
@@ -1019,21 +1013,56 @@ class OmegaBatchApp:
             "modbus_parity": self.modbus_parity.get(),
             "modbus_stopbits": self.modbus_stopbits.get(),
             "modbus_serial_mode": self.modbus_serial_mode.get(),
-            "slave_id": self.slave_id.get()
+            "slave_id": self.slave_id.get(),
+            "api_enabled": self.api_enabled.get(),
+            "api_base_url": self.api_base_url.get(),
+            "api_key": self.api_key.get(),
+            "api_endpoint_work_orders": self.api_endpoint_work_orders.get(),
+            "api_endpoint_submit_batch": self.api_endpoint_submit_batch.get(),
+            "api_endpoint_submit_box": self.api_endpoint_submit_box.get(),
+            "api_timeout": self.api_timeout.get(),
+            "api_auto_sync_batch": self.api_auto_sync_batch.get(),
+            "api_auto_sync_box": self.api_auto_sync_box.get()
         }
         success = self.data_manager.save_config(cfg)
+        if hasattr(self, 'api_manager'):
+            self.api_manager.update_config(cfg)
         if show_msg:
             if success:
-                messagebox.showinfo("Konfigurasi Tersimpan", "Konfigurasi hardware berhasil disimpan ke data/config.json!", parent=self.root)
-                self.log_msg("Konfigurasi hardware berhasil disimpan ke file data/config.json.")
+                messagebox.showinfo("Konfigurasi Tersimpan", "Konfigurasi hardware & API berhasil disimpan ke data/config.json!", parent=self.root)
+                self.log_msg("Konfigurasi hardware & API berhasil disimpan ke file data/config.json.")
             else:
                 messagebox.showerror("Error", "Gagal menyimpan konfigurasi hardware.", parent=self.root)
         return success
 
     def build_connectivity_tab(self):
+        # Buat scrollable container di tab_connectivity agar seluruh section (Printer, Scanner, Modbus, API) dapat diakses nyaman di semua resolusi monitor
+        canvas = tk.Canvas(self.tab_connectivity, bg="#f1f5f9", highlightthickness=0)
+        v_scroll = ttk.Scrollbar(self.tab_connectivity, orient="vertical", command=canvas.yview)
+        scroll_content = ttk.Frame(canvas)
+
+        scroll_content.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        canvas_window = canvas.create_window((0, 0), window=scroll_content, anchor="nw")
+
+        def _on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+        canvas.bind("<Configure>", _on_canvas_configure)
+
+        def _on_mousewheel(event):
+            if str(getattr(self, 'active_nav', '')) == "conn":
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.tab_connectivity.bind_all("<MouseWheel>", _on_mousewheel)
+
+        v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        canvas.configure(yscrollcommand=v_scroll.set)
+
         # --- 1. PRINTER GROUP ---
-        p_frame = ttk.LabelFrame(self.tab_connectivity, text=" Konfigurasi Printer Omega MX (TCP/IP) ", padding="15")
-        p_frame.pack(fill=tk.X, pady=5)
+        p_frame = ttk.LabelFrame(scroll_content, text=" Konfigurasi Printer Omega MX (TCP/IP) ", padding="12")
+        p_frame.pack(fill=tk.X, pady=(2, 6))
         ttk.Label(p_frame, text="IP:").grid(row=0, column=0)
         ttk.Entry(p_frame, textvariable=self.ip_addr, width=15).grid(row=0, column=1, padx=5)
         ttk.Label(p_frame, text="Port:").grid(row=0, column=2)
@@ -1042,8 +1071,8 @@ class OmegaBatchApp:
         ttk.Button(p_frame, text="Simpan Konfigurasi", command=lambda: self.save_hardware_config(show_msg=True)).grid(row=0, column=5, padx=5)
        
         # --- 2. DUAL SCANNER GROUP ---
-        s_frame = ttk.LabelFrame(self.tab_connectivity, text=" Konfigurasi Dual Scanner Keyence SR (TCP/IP) ", padding="10")
-        s_frame.pack(fill=tk.X, pady=5)
+        s_frame = ttk.LabelFrame(scroll_content, text=" Konfigurasi Dual Scanner Keyence SR (TCP/IP) ", padding="10")
+        s_frame.pack(fill=tk.X, pady=(0, 6))
 
         # Baris Atas: 2 Card Berdampingan (Scanner 1 & Scanner 2)
         grid_scanners = ttk.Frame(s_frame)
@@ -1110,12 +1139,12 @@ class OmegaBatchApp:
         ).pack(side=tk.RIGHT, padx=5)
 
         # --- 3. MODBUS I/O GROUP ---
-        self.io_frame = ttk.LabelFrame(self.tab_connectivity, text=" Modbus I/O System (DI/DO) ", padding="15")
-        self.io_frame.pack(fill=tk.X, pady=5)
+        self.io_frame = ttk.LabelFrame(scroll_content, text=" Modbus I/O System (DI/DO) ", padding="12")
+        self.io_frame.pack(fill=tk.X, pady=(0, 6))
 
         # Header: Mode & Slave ID
         header_f = ttk.Frame(self.io_frame)
-        header_f.pack(fill=tk.X, pady=5)
+        header_f.pack(fill=tk.X, pady=(0, 4))
         
         ttk.Label(header_f, text="Mode:").pack(side=tk.LEFT)
         self.modbus_mode = ttk.Combobox(header_f, values=["TCP", "RTU"], width=7, state="readonly")
@@ -1128,11 +1157,11 @@ class OmegaBatchApp:
 
         # Container untuk Dynamic Settings (TCP vs RTU)
         self.modbus_settings_container = ttk.Frame(self.io_frame)
-        self.modbus_settings_container.pack(fill=tk.X, pady=10)
+        self.modbus_settings_container.pack(fill=tk.X, pady=6)
         
         # Area Tombol Aksi I/O (Start Monitor & Test)
         action_bar = ttk.Frame(self.io_frame)
-        action_bar.pack(fill=tk.X, pady=(2, 8))
+        action_bar.pack(fill=tk.X, pady=(2, 6))
 
         self.btn_io_connect = ttk.Button(action_bar, text="Start Monitor I/O", command=self.toggle_io_monitoring)
         self.btn_io_connect.pack(side=tk.LEFT, padx=(0, 5))
@@ -1150,8 +1179,8 @@ class OmegaBatchApp:
         ttk.Entry(action_bar, textvariable=self.pusher_pulse_var, width=5).pack(side=tk.LEFT, padx=2)
 
         # --- PEMETAAN DAN DESKRIPSI ALAMAT I/O (DI / DO) ---
-        mapping_frame = ttk.LabelFrame(self.io_frame, text=" Pemetaan Alamat & Deskripsi Sinyal I/O Modbus ", padding="10")
-        mapping_frame.pack(fill=tk.X, pady=5)
+        mapping_frame = ttk.LabelFrame(self.io_frame, text=" Pemetaan Alamat & Deskripsi Sinyal I/O Modbus ", padding="8")
+        mapping_frame.pack(fill=tk.X, pady=(2, 0))
 
         col_input = ttk.Frame(mapping_frame)
         col_input.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 15))
@@ -1160,8 +1189,8 @@ class OmegaBatchApp:
         col_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(15, 5))
 
         # Header Kolom
-        ttk.Label(col_input, text="INPUT (DI / Sensor Fisik Mesin ke PC):", font=("Segoe UI", 9, "bold")).pack(anchor=tk.W, pady=(0, 6))
-        ttk.Label(col_output, text="OUTPUT (DO / Aktuator & Alarm dari PC):", font=("Segoe UI", 9, "bold")).pack(anchor=tk.W, pady=(0, 6))
+        ttk.Label(col_input, text="INPUT (DI / Sensor Fisik Mesin ke PC):", font=("Segoe UI", 9, "bold")).pack(anchor=tk.W, pady=(0, 4))
+        ttk.Label(col_output, text="OUTPUT (DO / Aktuator & Alarm dari PC):", font=("Segoe UI", 9, "bold")).pack(anchor=tk.W, pady=(0, 4))
 
         self.di_leds = []
         self.do_leds = []
@@ -1182,32 +1211,152 @@ class OmegaBatchApp:
 
         for code, addr, title, desc in di_data:
             r = ttk.Frame(col_input)
-            r.pack(fill=tk.X, pady=2)
-            led = tk.Frame(r, width=14, height=14, bg="grey", highlightthickness=1)
+            r.pack(fill=tk.X, pady=1)
+            led = tk.Frame(r, width=13, height=13, bg="grey", highlightthickness=1)
             led.pack(side=tk.LEFT, padx=(0, 6))
             self.di_leds.append(led)
-            ttk.Label(r, text=f"[{code}] {addr} :", font=("Consolas", 9, "bold"), width=15).pack(side=tk.LEFT)
-            ttk.Label(r, text=f"{title}", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
+            ttk.Label(r, text=f"[{code}] {addr} :", font=("Consolas", 8, "bold"), width=14).pack(side=tk.LEFT)
+            ttk.Label(r, text=f"{title}", font=("Segoe UI", 8, "bold")).pack(side=tk.LEFT)
             ttk.Label(r, text=f" — {desc}", font=("Segoe UI", 8, "italic"), foreground="#555555").pack(side=tk.LEFT)
 
         for code, addr, title, desc in do_data:
             r = ttk.Frame(col_output)
-            r.pack(fill=tk.X, pady=2)
-            led = tk.Frame(r, width=14, height=14, bg="grey", highlightthickness=1)
+            r.pack(fill=tk.X, pady=1)
+            led = tk.Frame(r, width=13, height=13, bg="grey", highlightthickness=1)
             led.pack(side=tk.LEFT, padx=(0, 6))
             self.do_leds.append(led)
-            ttk.Label(r, text=f"[{code}] {addr} :", font=("Consolas", 9, "bold"), width=15).pack(side=tk.LEFT)
-            ttk.Label(r, text=f"{title}", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
+            ttk.Label(r, text=f"[{code}] {addr} :", font=("Consolas", 8, "bold"), width=14).pack(side=tk.LEFT)
+            ttk.Label(r, text=f"{title}", font=("Segoe UI", 8, "bold")).pack(side=tk.LEFT)
             ttk.Label(r, text=f" — {desc}", font=("Segoe UI", 8, "italic"), foreground="#555555").pack(side=tk.LEFT)
 
         # Panggil fungsi pertama kali untuk set view TCP
         self.on_modbus_mode_change(None)
+
+        # --- 4. INTEGRASI API SISTEM UTAMA (ERP / MES / CLOUD) ---
+        self.api_frame = ttk.LabelFrame(scroll_content, text=" Integrasi API Sistem Utama (ERP / MES / Core Server) ", padding="12")
+        self.api_frame.pack(fill=tk.X, pady=(0, 8))
+
+        # Baris Header: Toggle Enable + Indikator Status Koneksi
+        api_header = ttk.Frame(self.api_frame)
+        api_header.pack(fill=tk.X, pady=(0, 8))
+
+        self.chk_api_enable = ttk.Checkbutton(
+            api_header,
+            text="Aktifkan Integrasi API Sistem Utama",
+            variable=self.api_enabled,
+            command=self._on_api_enable_toggle
+        )
+        self.chk_api_enable.pack(side=tk.LEFT)
+
+        self.lbl_api_status = tk.Label(
+            api_header,
+            textvariable=self.api_status_text,
+            font=("Segoe UI", 8, "bold"),
+            fg="#64748b",
+            bg="#f1f5f9",
+            padx=8,
+            pady=2,
+            relief="solid",
+            bd=1
+        )
+        self.lbl_api_status.pack(side=tk.LEFT, padx=12)
+
+        lbl_api_mode_info = ttk.Label(
+            api_header,
+            text="Protokol: REST JSON Bi-directional (Client Pull/Push & Embedded Server Port 5022)",
+            font=("Segoe UI", 8, "italic"),
+            foreground="#555555"
+        )
+        lbl_api_mode_info.pack(side=tk.RIGHT)
+
+        # Baris 1: Base URL API & Timeout
+        row_url = ttk.Frame(self.api_frame)
+        row_url.pack(fill=tk.X, pady=2)
+        ttk.Label(row_url, text="Base URL API:", width=18).pack(side=tk.LEFT)
+        self.ent_api_url = ttk.Entry(row_url, textvariable=self.api_base_url, width=50)
+        self.ent_api_url.pack(side=tk.LEFT, padx=(0, 15))
+
+        ttk.Label(row_url, text="Timeout (detik):").pack(side=tk.LEFT)
+        self.ent_api_timeout = ttk.Entry(row_url, textvariable=self.api_timeout, width=6)
+        self.ent_api_timeout.pack(side=tk.LEFT, padx=5)
+
+        # Baris 2: API Key / Bearer Token & Toggle Show/Hide
+        row_key = ttk.Frame(self.api_frame)
+        row_key.pack(fill=tk.X, pady=2)
+        ttk.Label(row_key, text="API Key / Token:", width=18).pack(side=tk.LEFT)
+        self.ent_api_key = ttk.Entry(row_key, textvariable=self.api_key, width=50, show="●")
+        self.ent_api_key.pack(side=tk.LEFT, padx=(0, 6))
+
+        self.var_show_api_key = tk.BooleanVar(value=False)
+        def _toggle_key_vis():
+            if self.var_show_api_key.get():
+                self.ent_api_key.config(show="")
+                btn_key_vis.config(text="Sembunyikan")
+            else:
+                self.ent_api_key.config(show="●")
+                btn_key_vis.config(text="Tampilkan")
+
+        btn_key_vis = tk.Button(
+            row_key, text="Tampilkan", font=("Segoe UI", 8),
+            relief="groove", bd=1, padx=6, pady=1, cursor="hand2",
+            command=lambda: [self.var_show_api_key.set(not self.var_show_api_key.get()), _toggle_key_vis()]
+        )
+        btn_key_vis.pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Label(row_key, text="(Header: Bearer Token / X-API-Key)", font=("Segoe UI", 8, "italic"), foreground="#64748b").pack(side=tk.LEFT)
+
+        # Baris 3: Endpoints (Inbound: Work Orders | Outbound: Batch Summary)
+        row_ep = ttk.Frame(self.api_frame)
+        row_ep.pack(fill=tk.X, pady=2)
+        ttk.Label(row_ep, text="Endpoint Tarik WO:", width=18).pack(side=tk.LEFT)
+        self.ent_ep_wo = ttk.Entry(row_ep, textvariable=self.api_endpoint_work_orders, width=22)
+        self.ent_ep_wo.pack(side=tk.LEFT, padx=(0, 15))
+
+        ttk.Label(row_ep, text="Endpoint Kirim Hasil:").pack(side=tk.LEFT)
+        self.ent_ep_batch = ttk.Entry(row_ep, textvariable=self.api_endpoint_submit_batch, width=26)
+        self.ent_ep_batch.pack(side=tk.LEFT, padx=5)
+
+        ttk.Label(row_ep, text="Endpoint QC Box:").pack(side=tk.LEFT, padx=(10, 2))
+        self.ent_ep_box = ttk.Entry(row_ep, textvariable=self.api_endpoint_submit_box, width=20)
+        self.ent_ep_box.pack(side=tk.LEFT, padx=3)
+
+        # Baris 4: Opsi Otomasi & Telemetry
+        row_opts = ttk.Frame(self.api_frame)
+        row_opts.pack(fill=tk.X, pady=(5, 8))
+
+        ttk.Checkbutton(
+            row_opts,
+            text="Auto-kirim ringkasan produksi ke Sistem Utama saat batch selesai",
+            variable=self.api_auto_sync_batch
+        ).pack(side=tk.LEFT, padx=(0, 15))
+
+        ttk.Checkbutton(
+            row_opts,
+            text="Push hasil QC real-time per box",
+            variable=self.api_auto_sync_box
+        ).pack(side=tk.LEFT)
+
+        # Baris 5: Action Buttons (Test, Simpan, Preview, Spesifikasi)
+        row_actions = ttk.Frame(self.api_frame)
+        row_actions.pack(fill=tk.X, pady=(4, 2))
+
+        btn_test_api = ttk.Button(row_actions, text="Test Koneksi API", command=self.test_api_connection)
+        btn_test_api.pack(side=tk.LEFT, padx=(0, 6))
+
+        btn_save_api = ttk.Button(row_actions, text="Simpan Konfigurasi API", command=lambda: self.save_hardware_config(show_msg=True))
+        btn_save_api.pack(side=tk.LEFT, padx=6)
+
+        btn_sample_api = ttk.Button(row_actions, text="Tarik Work Order Sekarang", command=self.open_fetch_api_dialog)
+        btn_sample_api.pack(side=tk.LEFT, padx=6)
+
+        btn_schema_api = ttk.Button(row_actions, text="📖 Spesifikasi Payload API", command=self.open_api_contract_dialog)
+        btn_schema_api.pack(side=tk.RIGHT, padx=6)
         
         # --- INFO DEVELOPER ---
-        dev_frame = ttk.Frame(self.tab_connectivity)
-        dev_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(4, 0))
+        dev_frame = ttk.Frame(scroll_content)
+        dev_frame.pack(fill=tk.X, pady=(4, 0))
         ttk.Separator(dev_frame, orient='horizontal').pack(fill=tk.X, pady=4)
-        ttk.Label(dev_frame, text="PT SMARTEK SISTEM INOVASI  |  Industrial Automation & Software Solutions  |  Developer: WLDN", font=("Segoe UI", 8, "italic"), foreground="#555555").pack(pady=2)
+        ttk.Label(dev_frame, text="PT SMARTEK SISTEM INOVASI  |  Industrial Automation & Software Solutions  |  Developer: WLDN  |  v2.0 API Ready", font=("Segoe UI", 8, "italic"), foreground="#555555").pack(pady=2)
            
     def build_logs_tab(self):
         log_frame = ttk.Frame(self.tab_logs)
@@ -2319,6 +2468,21 @@ class OmegaBatchApp:
         }
         self.save_current_checkpoint()
         
+        # Kirim hasil QC real-time ke Sistem Utama via REST API (v2.0)
+        if getattr(self, 'api_auto_sync_box', None) and self.api_auto_sync_box.get() and hasattr(self, 'api_manager'):
+            box_payload = {
+                "work_order_id": getattr(self, 'current_work_order_id', getattr(self, 'current_filename', '')),
+                "box_no": box_no,
+                "sku": box_sku,
+                "qr": box_qr,
+                "matl_code": box_mat,
+                "status": "OK" if is_ok else "NG",
+                "scanner1": s1_str,
+                "scanner2": s2_str,
+                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            threading.Thread(target=self.api_manager.send_box_qc, args=(box_payload,), daemon=True).start()
+        
         # JIKA JUMLAH SCAN == JUMLAH DATA YANG DIKIRIM (LOAD)
         if self.current_judgments >= self.expected_total_judgments:
             self.finalize_batch()
@@ -2492,6 +2656,29 @@ class OmegaBatchApp:
                     self.resumed_checkpoint = None
                     self.checkpoint_judged_map = {}
                     self.data_manager.clear_batch_checkpoint()
+
+                    # Kirim ringkasan produksi batch ke Sistem Utama via REST API (v2.0)
+                    if getattr(self, 'api_auto_sync_batch', None) and self.api_auto_sync_batch.get() and hasattr(self, 'api_manager'):
+                        batch_summary = {
+                            "work_order_id": getattr(self, 'current_work_order_id', getattr(self, 'current_filename', '')),
+                            "source_filename": current_fn,
+                            "batch_start_time": start_time,
+                            "batch_end_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "total_target": target_total,
+                            "total_judged": getattr(self, 'current_judgments', len(records)),
+                            "total_ok": self.count_ok,
+                            "total_ng": self.count_ng,
+                            "ng_rate_pct": round((self.count_ng / max(1, (self.count_ok + self.count_ng))) * 100, 2),
+                            "operator": self.current_user.get("username", "Admin") if hasattr(self, 'current_user') and self.current_user else "Admin",
+                            "records_count": len(records)
+                        }
+                        def _send_batch_api():
+                            ok, res = self.api_manager.send_batch_summary(batch_summary)
+                            if ok:
+                                self.log_msg(f"[API] Sukses sinkronisasi ringkasan batch ke Sistem Utama.")
+                            else:
+                                self.log_msg(f"[API WARNING] Gagal sinkronisasi batch ke Sistem Utama: {res}")
+                        threading.Thread(target=_send_batch_api, daemon=True).start()
 
                     # --- STOP & CLR SETELAH HISTORY TERSIMPAN DI BACKGROUND ---
                     def _printer_cleanup():
@@ -2983,6 +3170,480 @@ class OmegaBatchApp:
 
         self.log_msg("Membuka Dashboard Analitik.")
         webbrowser.open("http://127.0.0.1:5022")
+
+    # ==========================================
+    # 6. INTEGRASI REST API SISTEM UTAMA (v2.0)
+    # ==========================================
+    def _on_api_enable_toggle(self):
+        """Handler saat checkbox aktifasi integrasi API diubah oleh operator"""
+        is_en = bool(self.api_enabled.get())
+        if hasattr(self, 'api_manager'):
+            self.api_manager.config["api_enabled"] = is_en
+        self.update_hardware_indicators()
+        status_str = "Diaktifkan" if is_en else "Dinonaktifkan"
+        self.log_msg(f"[API] Integrasi API Sistem Utama {status_str}.")
+
+    def test_api_connection(self):
+        """Uji koneksi ping / health-check HTTP ke Sistem Utama secara non-blocking (S2)"""
+        base_url = self.api_base_url.get().strip()
+        api_key = self.api_key.get().strip()
+        try:
+            timeout_sec = float(self.api_timeout.get().strip())
+        except Exception:
+            timeout_sec = 5.0
+
+        self.api_status_text.set("⟳ Menghubungkan...")
+        if hasattr(self, 'lbl_api_status'):
+            self.lbl_api_status.config(fg="#f59e0b", bg="#fef3c7")
+        self.log_msg(f"[API] Menguji koneksi HTTP ke Sistem Utama: {base_url}...")
+
+        def _worker():
+            success, msg, latency = self.api_manager.test_connection(base_url, api_key, timeout_sec)
+            def _on_done():
+                if success:
+                    self.api_status_text.set(f"● Online ({latency:.0f} ms)")
+                    if hasattr(self, 'lbl_api_status'):
+                        self.lbl_api_status.config(fg="#10b981", bg="#ecfdf5")
+                    self.log_msg(f"[API] Terhubung ke Sistem Utama! Latensi: {latency:.1f} ms. {msg}")
+                    messagebox.showinfo(
+                        "Koneksi API Berhasil",
+                        f"Berhasil terhubung ke Sistem Utama!\n\n"
+                        f"Base URL: {base_url}\n"
+                        f"Latensi Jaringan: {latency:.1f} ms\n"
+                        f"Respon: {msg}",
+                        parent=self.root
+                    )
+                else:
+                    self.api_status_text.set("○ Offline / Gagal")
+                    if hasattr(self, 'lbl_api_status'):
+                        self.lbl_api_status.config(fg="#ef4444", bg="#fef2f2")
+                    self.log_msg(f"[API GAGAL] {msg}")
+                    messagebox.showerror(
+                        "Koneksi API Gagal",
+                        f"Tidak dapat menjangkau Sistem Utama:\n\n{msg}\n\n"
+                        f"Tips:\n"
+                        f"- Pastikan server ERP / MES aktif di port yang benar.\n"
+                        f"- Periksa kabel LAN atau rute jaringan ke host {base_url}.\n"
+                        f"- Jika server belum online, gunakan opsi 'Load File' Excel sebagai cadangan.",
+                        parent=self.root
+                    )
+                self.update_hardware_indicators()
+            self.root.after(0, _on_done)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def start_api_server(self):
+        """Menjalankan Embedded REST API & Analytics Server (Port 5022) di background thread"""
+        try:
+            if not hasattr(self, 'flask_instance'):
+                self.flask_instance = AnalyticsServer(
+                    history_csv=self.history_log_file,
+                    app_status_callback=self.get_system_status_dict,
+                    work_order_callback=self.on_work_order_pushed
+                )
+                self.flask_thread = threading.Thread(
+                    target=lambda: self.flask_instance.run(port=5022),
+                    daemon=True
+                )
+                self.flask_thread.start()
+                self.log_msg("[API SERVER] Embedded REST API & Analytics Server berjalan di http://0.0.0.0:5022")
+        except Exception as e:
+            self.log_msg(f"[API SERVER WARNING] Inisialisasi API server: {e}")
+
+    def get_system_status_dict(self):
+        """Data telemetri mesin real-time yang disajikan untuk Sistem Utama via GET /api/v1/status"""
+        try:
+            is_sim = self.check_is_simulation()
+            target_total = getattr(self, 'total_valid_print_data', getattr(self, 'total_load_data', 0))
+            judged = getattr(self, 'current_judgments', 0)
+            pct = round((judged / max(1, target_total)) * 100, 1) if target_total > 0 else 0.0
+
+            return {
+                "system_status": getattr(self, 'active_sys_status', 'READY'),
+                "mode_simulasi": is_sim,
+                "current_work_order": getattr(self, 'current_work_order_id', ''),
+                "current_file": getattr(self, 'current_filename', ''),
+                "batch_start_time": getattr(self, 'batch_start_time', '-'),
+                "progress": {
+                    "total_target": target_total,
+                    "judged": judged,
+                    "count_ok": getattr(self, 'count_ok', 0),
+                    "count_ng": getattr(self, 'count_ng', 0),
+                    "progress_percent": pct
+                },
+                "hardware": {
+                    "printer_online": is_sim or getattr(self, 'printer_connected', False),
+                    "scanner1_online": getattr(self, 'is_listening1', False),
+                    "scanner2_online": getattr(self, 'is_listening2', False),
+                    "modbus_online": getattr(self, 'modbus_connected', False),
+                    "upstream_api_online": getattr(self.api_manager, 'is_connected', False)
+                },
+                "operator": self.current_user.get("username", "Admin") if hasattr(self, 'current_user') and self.current_user else "Admin",
+                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+        except Exception as e:
+            return {"error": str(e), "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+    def on_work_order_pushed(self, payload):
+        """Handler saat Sistem Utama mengirim POST /api/v1/work-order/push ke Omega MX"""
+        def _handle_push():
+            wo_id = payload.get("work_order_id", "Unknown")
+            sku = payload.get("sku_code", "")
+            qty = payload.get("target_qty", len(payload.get("items", [])))
+            msg = (
+                f"Sistem Utama (ERP / MES) me-push Work Order baru ke mesin ini!\n\n"
+                f"• No. Work Order: {wo_id}\n"
+                f"• SKU: {sku}\n"
+                f"• Target Produksi: {qty} Box\n\n"
+                f"Apakah Anda ingin memuat data ini ke antrean cetak & QC sekarang?"
+            )
+            if messagebox.askyesno("Work Order Baru Diterima (API Push)", msg, parent=self.root):
+                self._apply_work_order_to_production(payload)
+        self.root.after(0, _handle_push)
+
+    def _apply_work_order_to_production(self, wo):
+        """Menerapkan payload Work Order dari API ke DataFrame dan antrean produksi"""
+        try:
+            res = self.api_manager.parse_work_order_to_dataframe(wo)
+            if isinstance(res, tuple):
+                df, parse_msg = res
+            else:
+                df = res
+
+            if df is None or len(df) == 0:
+                messagebox.showwarning("Data Kosong", "Work Order tidak memiliki data item untuk diproduksi.", parent=self.root)
+                return False
+
+            wo_id = str(wo.get("work_order_id", "WO_BATCH"))
+            sku_code = str(wo.get("sku_code", "SKU"))
+
+            self.df = df
+            self.current_filename = f"API_{wo_id}_{sku_code}"
+            self.current_work_order_id = wo_id
+            self.total_load_data = len(self.df)
+            self.stat_total.set(str(self.total_load_data))
+
+            if hasattr(self, 'lbl_file_chip'):
+                self.lbl_file_chip.config(text=f"API: {wo_id} ({sku_code})")
+            if hasattr(self, 'draw_progress_gauge'):
+                self.draw_progress_gauge(0, self.total_load_data, 0)
+
+            self.resumed_checkpoint = None
+            self.checkpoint_judged_map = {}
+            self.reset_stats()
+
+            cols = self.df.columns.tolist()
+            self.cb_sku['values'] = cols
+            self.cb_qr['values'] = cols
+            self.cb_matl['values'] = cols
+            if len(cols) >= 3:
+                self.sel_sku.set(cols[0])
+                self.sel_qr.set(cols[1])
+                self.sel_matl.set(cols[2])
+
+            self.update_table()
+            self.log_msg(f"[API] Berhasil memuat data Work Order: {wo_id} ({self.total_load_data} item)")
+
+            threading.Thread(target=self.auto_start_printer, daemon=True).start()
+
+            if not (getattr(self, 'is_listening1', False) or getattr(self, 'is_listening2', False)):
+                ans = messagebox.askyesno(
+                    "Load API Sukses",
+                    f"Work Order {wo_id} ({self.total_load_data} item) siap diproduksi.\n"
+                    f"Hubungkan Scanner Keyence (Dual Scanner) sekarang?",
+                    parent=self.root
+                )
+                if ans:
+                    self.connect_all_scanners()
+            return True
+        except Exception as e:
+            messagebox.showerror("Gagal Memuat Work Order", f"Error memproses data API:\n{e}", parent=self.root)
+            self.log_msg(f"[API ERROR] Gagal memuat data Work Order: {e}")
+            return False
+
+    def open_fetch_api_dialog(self):
+        """Membuka dialog modal untuk menarik daftar Work Order aktif dari API Sistem Utama"""
+        win = tk.Toplevel(self.root)
+        win.title("Tarik Work Order dari Sistem Utama (ERP / MES)")
+        win.geometry("860x520")
+        win.minsize(780, 440)
+        win.transient(self.root)
+        win.grab_set()
+
+        # Center window
+        win.update_idletasks()
+        w = win.winfo_width(); h = win.winfo_height()
+        x = max(0, (win.winfo_screenwidth() // 2) - (w // 2))
+        y = max(0, (win.winfo_screenheight() // 2) - (h // 2))
+        win.geometry(f"{w}x{h}+{x}+{y}")
+
+        # Top Bar
+        top_f = tk.Frame(win, bg="#0f172a", padx=16, pady=12)
+        top_f.pack(fill=tk.X)
+
+        tk.Label(
+            top_f,
+            text="Integrasi API Sistem Utama - Pemilihan Work Order (SPK)",
+            font=("Segoe UI", 11, "bold"),
+            fg="#f8fafc",
+            bg="#0f172a"
+        ).pack(anchor="w")
+
+        base_url_display = self.api_base_url.get().strip() or "http://192.168.1.50:8000/api/v1"
+        tk.Label(
+            top_f,
+            text=f"Target Server: {base_url_display}{self.api_endpoint_work_orders.get().strip()}",
+            font=("Segoe UI", 8),
+            fg="#94a3b8",
+            bg="#0f172a"
+        ).pack(anchor="w", pady=(2, 0))
+
+        # Main Content
+        body_f = ttk.Frame(win, padding="12")
+        body_f.pack(fill=tk.BOTH, expand=True)
+
+        # Toolbar & Filter
+        tb_f = ttk.Frame(body_f)
+        tb_f.pack(fill=tk.X, pady=(0, 8))
+
+        lbl_status_fetch = ttk.Label(tb_f, text="Menyiapkan koneksi...", font=("Segoe UI", 9, "italic"))
+        lbl_status_fetch.pack(side=tk.LEFT)
+
+        btn_refresh = ttk.Button(tb_f, text="⟳ Ambil Ulang Data API")
+        btn_refresh.pack(side=tk.RIGHT)
+
+        # Treeview Daftar WO
+        columns = ("wo_id", "sku_code", "sku_name", "batch_no", "qty", "status", "priority")
+        wo_tree = ttk.Treeview(body_f, columns=columns, show="headings", selectmode="browse")
+        wo_tree.heading("wo_id", text="No. Work Order / SPK")
+        wo_tree.heading("sku_code", text="Kode SKU")
+        wo_tree.heading("sku_name", text="Nama Produk / Deskripsi")
+        wo_tree.heading("batch_no", text="No. Batch")
+        wo_tree.heading("qty", text="Target (Box)")
+        wo_tree.heading("status", text="Status")
+        wo_tree.heading("priority", text="Prioritas")
+
+        wo_tree.column("wo_id", width=140, anchor=tk.W)
+        wo_tree.column("sku_code", width=110, anchor=tk.W)
+        wo_tree.column("sku_name", width=220, anchor=tk.W)
+        wo_tree.column("batch_no", width=110, anchor=tk.CENTER)
+        wo_tree.column("qty", width=90, anchor=tk.CENTER)
+        wo_tree.column("status", width=90, anchor=tk.CENTER)
+        wo_tree.column("priority", width=80, anchor=tk.CENTER)
+
+        tree_scroll = ttk.Scrollbar(body_f, orient=tk.VERTICAL, command=wo_tree.yview)
+        wo_tree.configure(yscrollcommand=tree_scroll.set)
+        wo_tree.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        tree_scroll.pack(side=tk.RIGHT, fill=tk.Y, before=wo_tree)
+
+        # Detail Info Box
+        detail_card = ttk.LabelFrame(body_f, text=" Detail Work Order Terpilih ", padding="8")
+        detail_card.pack(fill=tk.X, pady=(8, 0))
+
+        lbl_detail_wo = ttk.Label(
+            detail_card,
+            text="Pilih salah satu baris Work Order di atas untuk melihat detail item dan memuat ke mesin.",
+            font=("Segoe UI", 8),
+            foreground="#475569"
+        )
+        lbl_detail_wo.pack(anchor="w")
+
+        # Bottom Buttons
+        bottom_f = ttk.Frame(win, padding="12")
+        bottom_f.pack(fill=tk.X)
+
+        btn_cfg = ttk.Button(
+            bottom_f,
+            text="⚙ Konfigurasi API",
+            command=lambda: [win.destroy(), self.switch_nav("conn")]
+        )
+        btn_cfg.pack(side=tk.LEFT)
+
+        btn_fallback = ttk.Button(
+            bottom_f,
+            text="📂 Gunakan File Excel (Fallback)",
+            command=lambda: [win.destroy(), self.load_file()]
+        )
+        btn_fallback.pack(side=tk.LEFT, padx=8)
+
+        btn_close = ttk.Button(bottom_f, text="Batal", command=win.destroy)
+        btn_close.pack(side=tk.RIGHT, padx=(8, 0))
+
+        btn_load_wo = tk.Button(
+            bottom_f,
+            text="✔ Muat Work Order ke Antrean Produksi",
+            font=("Segoe UI", 9, "bold"),
+            bg="#16a34a",
+            fg="#ffffff",
+            activebackground="#15803d",
+            activeforeground="#ffffff",
+            relief="solid",
+            bd=1,
+            padx=12,
+            pady=4,
+            cursor="hand2",
+            state=tk.DISABLED
+        )
+        btn_load_wo.pack(side=tk.RIGHT)
+
+        fetched_orders_map = {}
+
+        def _on_item_select(event):
+            sel = wo_tree.selection()
+            if not sel:
+                btn_load_wo.config(state=tk.DISABLED)
+                return
+            item_id = sel[0]
+            wo_obj = fetched_orders_map.get(item_id)
+            if wo_obj:
+                btn_load_wo.config(state=tk.NORMAL)
+                wo_no = wo_obj.get("work_order_id", "-")
+                sku = wo_obj.get("sku_code", "-")
+                name = wo_obj.get("sku_name", "-")
+                qty = wo_obj.get("target_qty", len(wo_obj.get("items", [])))
+                batch = wo_obj.get("batch_no", "-")
+                note = wo_obj.get("notes", "Tidak ada catatan khusus.")
+                lbl_detail_wo.config(
+                    text=f"WO: {wo_no}  |  SKU: {sku} - {name}  |  Batch: {batch}  |  Target: {qty} Box\nCatatan: {note}"
+                )
+
+        wo_tree.bind("<<TreeviewSelect>>", _on_item_select)
+
+        def _do_load_selected():
+            sel = wo_tree.selection()
+            if not sel:
+                return
+            wo_obj = fetched_orders_map.get(sel[0])
+            if wo_obj:
+                win.destroy()
+                self._apply_work_order_to_production(wo_obj)
+
+        btn_load_wo.config(command=_do_load_selected)
+        wo_tree.bind("<Double-1>", lambda e: _do_load_selected())
+
+        def _fetch_data():
+            lbl_status_fetch.config(text="⟳ Menghubungi Sistem Utama via REST API...")
+            btn_refresh.config(state=tk.DISABLED)
+            btn_load_wo.config(state=tk.DISABLED)
+            wo_tree.delete(*wo_tree.get_children())
+            fetched_orders_map.clear()
+
+            base_u = self.api_base_url.get().strip()
+            key_u = self.api_key.get().strip()
+            try:
+                tout = float(self.api_timeout.get().strip())
+            except Exception:
+                tout = 5.0
+
+            def _thread_fn():
+                success, data_or_msg = self.api_manager.fetch_active_work_orders(base_u, key_u, tout)
+                def _ui_update():
+                    btn_refresh.config(state=tk.NORMAL)
+                    if success and isinstance(data_or_msg, list):
+                        count = len(data_or_msg)
+                        lbl_status_fetch.config(text=f"✔ Ditemukan {count} Work Order aktif dari Sistem Utama.")
+                        for idx, wo in enumerate(data_or_msg):
+                            node_id = f"wo_{idx}"
+                            fetched_orders_map[node_id] = wo
+                            wo_tree.insert(
+                                "",
+                                tk.END,
+                                iid=node_id,
+                                values=(
+                                    wo.get("work_order_id", "-"),
+                                    wo.get("sku_code", "-"),
+                                    wo.get("sku_name", "-"),
+                                    wo.get("batch_no", "-"),
+                                    wo.get("target_qty", len(wo.get("items", []))),
+                                    wo.get("status", "ACTIVE"),
+                                    wo.get("priority", "NORMAL")
+                                )
+                            )
+                        if count > 0:
+                            # Auto-select baris pertama
+                            first_id = f"wo_0"
+                            wo_tree.selection_set(first_id)
+                            wo_tree.focus(first_id)
+                            _on_item_select(None)
+                    else:
+                        lbl_status_fetch.config(text=f"✖ Gagal mengambil data: {data_or_msg}")
+                        lbl_detail_wo.config(
+                            text=f"Koneksi ke API Sistem Utama bermasalah ({data_or_msg}).\n"
+                            f"Silakan periksa Base URL di tab Koneksi atau gunakan tombol 'Gunakan File Excel' di bawah."
+                        )
+                win.after(0, _ui_update)
+
+            threading.Thread(target=_thread_fn, daemon=True).start()
+
+        btn_refresh.config(command=_fetch_data)
+        # Jalankan penarikan data awal
+        _fetch_data()
+
+    def open_api_contract_dialog(self):
+        """Membuka dialog referensi dokumentasi spesifikasi payload REST API (v2.0)"""
+        win = tk.Toplevel(self.root)
+        win.title("Spesifikasi Kontrak REST API Sistem Utama (v2.0)")
+        win.geometry("860x580")
+        win.minsize(720, 480)
+        win.transient(self.root)
+
+        # Header
+        top_f = tk.Frame(win, bg="#0f172a", padx=16, pady=12)
+        top_f.pack(fill=tk.X)
+
+        tk.Label(
+            top_f,
+            text="Dokumentasi & Spesifikasi Integrasi API (Bi-directional)",
+            font=("Segoe UI", 11, "bold"),
+            fg="#f8fafc",
+            bg="#0f172a"
+        ).pack(anchor="w")
+
+        tk.Label(
+            top_f,
+            text="Format JSON Inbound & Outbound untuk komunikasi antara Omega MX dan ERP / MES Pabrik",
+            font=("Segoe UI", 8),
+            fg="#94a3b8",
+            bg="#0f172a"
+        ).pack(anchor="w", pady=(2, 0))
+
+        # Text Area dengan Scrollbar
+        txt_frame = ttk.Frame(win, padding="10")
+        txt_frame.pack(fill=tk.BOTH, expand=True)
+
+        scrollbar = ttk.Scrollbar(txt_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        txt_docs = tk.Text(
+            txt_frame,
+            wrap=tk.WORD,
+            yscrollcommand=scrollbar.set,
+            bg="#1e1e1e",
+            fg="#e2e8f0",
+            insertbackground="#ffffff",
+            font=("Consolas", 9),
+            padx=10,
+            pady=10
+        )
+        txt_docs.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=txt_docs.yview)
+
+        # Ambil dokumentasi markdown dari APIManager
+        doc_content = self.api_manager.get_api_documentation_markdown()
+        txt_docs.insert(tk.END, doc_content)
+        txt_docs.config(state=tk.DISABLED)
+
+        # Bottom Bar
+        bot_f = ttk.Frame(win, padding="10")
+        bot_f.pack(fill=tk.X)
+
+        def _copy_clipboard():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(doc_content)
+            messagebox.showinfo("Tersalin", "Spesifikasi kontrak API berhasil disalin ke clipboard!", parent=win)
+
+        ttk.Button(bot_f, text="📋 Salin Spesifikasi ke Clipboard", command=_copy_clipboard).pack(side=tk.LEFT)
+        ttk.Button(bot_f, text="Tutup", command=win.destroy).pack(side=tk.RIGHT)
 
     def on_closing(self):
         """ Memastikan aplikasi tutup total, socket hardware diputus dengan aman, dan CMD kembali normal """

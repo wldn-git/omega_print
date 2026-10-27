@@ -11,8 +11,10 @@ def get_base_dir():
         return os.path.dirname(os.path.abspath(__file__))
 
 class AnalyticsServer:
-    def __init__(self, history_log_file):
+    def __init__(self, history_log_file, app_status_callback=None, work_order_callback=None):
         self.history_log_file = history_log_file
+        self.app_status_callback = app_status_callback
+        self.work_order_callback = work_order_callback
         self.assets_dir = os.path.join(get_base_dir(), "assets")
         self.app = Flask(__name__)
         self.setup_routes()
@@ -39,8 +41,50 @@ class AnalyticsServer:
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)})
 
+        # === ENDPOINTS REST API V1 UNTUK SISTEM UTAMA ===
+        @self.app.route('/api/v1/health', methods=['GET'])
+        def api_health():
+            return jsonify({
+                "status": "healthy",
+                "system": "Omega MX Batch & QC System",
+                "version": "2.0-API",
+                "timestamp": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+
+        @self.app.route('/api/v1/status', methods=['GET'])
+        def api_status():
+            try:
+                if self.app_status_callback:
+                    data = self.app_status_callback()
+                    return jsonify(data)
+                return jsonify({"status": "online", "message": "Omega MX server active"})
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 500
+
+        @self.app.route('/api/v1/history', methods=['GET'])
+        def api_v1_history():
+            return get_history()
+
+        from flask import request
+        @self.app.route('/api/v1/work-order/push', methods=['POST'])
+        def api_push_work_order():
+            try:
+                payload = request.get_json(silent=True)
+                if not payload:
+                    return jsonify({"status": "error", "message": "Body payload JSON tidak valid atau kosong"}), 400
+
+                if self.work_order_callback:
+                    ok, msg = self.work_order_callback(payload)
+                    if ok:
+                        return jsonify({"status": "success", "message": msg})
+                    return jsonify({"status": "error", "message": msg}), 422
+
+                return jsonify({"status": "error", "message": "Handler callback work order tidak terpasang"}), 503
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 500
+
     def run(self, port=5022):
-        self.app.run(port=port, debug=False, use_reloader=False)
+        self.app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
     def get_html_template(self):
         return """

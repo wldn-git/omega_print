@@ -19,5 +19,14 @@
     "modbus_parity": "Even",
     "modbus_stopbits": "1",
     "modbus_serial_mode": "RTU",
-    "slave_id": 2
+    "slave_id": 2,
+    "api_enabled": true,
+    "api_base_url": "http://192.168.1.50:8000/api/v1",
+    "api_key": "",
+    "api_endpoint_work_orders": "/work-orders/active",
+    "api_endpoint_submit_batch": "/production/batch-summary",
+    "api_endpoint_submit_box": "/production/qc-box",
+    "api_timeout": "5",
+    "api_auto_sync_batch": true,
+    "api_auto_sync_box": false
 }
