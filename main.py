@@ -3237,7 +3237,7 @@ class OmegaBatchApp:
         try:
             if not hasattr(self, 'flask_instance'):
                 self.flask_instance = AnalyticsServer(
-                    history_csv=self.history_log_file,
+                    history_log_file=self.history_log_file,
                     app_status_callback=self.get_system_status_dict,
                     work_order_callback=self.on_work_order_pushed
                 )

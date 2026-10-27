@@ -11,8 +11,8 @@ def get_base_dir():
         return os.path.dirname(os.path.abspath(__file__))
 
 class AnalyticsServer:
-    def __init__(self, history_log_file, app_status_callback=None, work_order_callback=None):
-        self.history_log_file = history_log_file
+    def __init__(self, history_log_file=None, app_status_callback=None, work_order_callback=None, history_csv=None):
+        self.history_log_file = history_log_file or history_csv or "data/history_log.csv"
         self.app_status_callback = app_status_callback
         self.work_order_callback = work_order_callback
         self.assets_dir = os.path.join(get_base_dir(), "assets")
