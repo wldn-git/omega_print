@@ -3276,25 +3276,36 @@ class OmegaBatchApp:
             self.log_msg(f"[API SERVER WARNING] Inisialisasi API server: {e}")
 
     def get_system_status_dict(self):
-        """Data telemetri mesin real-time yang disajikan untuk Sistem Utama via GET /api/v1/status"""
+        """Data telemetri mesin real-time yang disajikan untuk Sistem Utama & Web Analytics via GET /api/v1/status"""
         try:
             is_sim = self.check_is_simulation()
             target_total = getattr(self, 'total_valid_print_data', getattr(self, 'total_load_data', 0))
             judged = getattr(self, 'current_judgments', 0)
             pct = round((judged / max(1, target_total)) * 100, 1) if target_total > 0 else 0.0
+            queue_len = len(self.waiting_queue) if hasattr(self, 'waiting_queue') else 0
+            sisa_box = max(0, target_total - judged)
+
+            cur_sku = ""
+            if hasattr(self, 'df') and self.df is not None and not self.df.empty:
+                col_sku = getattr(self, 'sel_sku', None) and self.sel_sku.get()
+                if col_sku and col_sku in self.df.columns:
+                    cur_sku = str(self.df[col_sku].iloc[0]) if len(self.df) > 0 else ""
 
             return {
                 "system_status": getattr(self, 'active_sys_status', 'READY'),
                 "mode_simulasi": is_sim,
                 "current_work_order": getattr(self, 'current_work_order_id', ''),
                 "current_file": getattr(self, 'current_filename', ''),
+                "current_sku": cur_sku,
                 "batch_start_time": getattr(self, 'batch_start_time', '-'),
                 "progress": {
                     "total_target": target_total,
                     "judged": judged,
+                    "sisa": sisa_box,
                     "count_ok": getattr(self, 'count_ok', 0),
                     "count_ng": getattr(self, 'count_ng', 0),
-                    "progress_percent": pct
+                    "progress_percent": pct,
+                    "in_transit": queue_len
                 },
                 "hardware": {
                     "printer_online": is_sim or getattr(self, 'printer_connected', False),
