@@ -1460,6 +1460,7 @@ class OmegaBatchApp:
         if file_path:
             try:
                 self.df, self.current_filename = self.data_manager.load_source_file(file_path)
+                self.current_work_order_id = f"EXCEL_{os.path.splitext(self.current_filename)[0]}"
                 
                 self.total_load_data = len(self.df)
                 self.stat_total.set(str(self.total_load_data)) 
