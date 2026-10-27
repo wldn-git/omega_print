@@ -141,7 +141,8 @@ class AuthManager:
             user_info = {
                 "username": username,
                 "role": user.get("role", "operator"),
-                "name": user.get("name", username)
+                "name": user.get("name", username),
+                "permissions": user.get("permissions", self.get_default_permissions(user.get("role", "operator")))
             }
             return True, user_info, "Login berhasil."
         else:
@@ -196,7 +197,135 @@ class AuthManager:
             return True, f"Password untuk '{target_username}' berhasil diubah."
         return False, "Gagal mereset password."
 
+    def get_default_permissions(self, role: str) -> dict:
+        """Mendapatkan hak akses default berdasarkan peran pengguna"""
+        if role == "admin":
+            return {
+                "pages": ["main", "history", "conn", "logs", "master"],
+                "features": ["export_csv", "fetch_api", "manage_users", "manage_retention", "simulation_mode"]
+            }
+        else:
+            return {
+                "pages": ["main", "history", "logs"],
+                "features": ["export_csv"]
+            }
+
     def get_user_list(self):
-        """Mendapatkan daftar username dan role"""
+        """Mendapatkan daftar username dan role sederhana"""
         users = self._load_users()
         return [{"username": u, "role": d.get("role"), "name": d.get("name")} for u, d in users.items()]
+
+    def get_all_users_details(self):
+        """Mendapatkan daftar seluruh user lengkap dengan informasi hak akses"""
+        users = self._load_users()
+        result = []
+        for uname, udata in users.items():
+            role = udata.get("role", "operator")
+            perms = udata.get("permissions")
+            if not perms:
+                perms = self.get_default_permissions(role)
+            result.append({
+                "username": uname,
+                "name": udata.get("name", uname),
+                "role": role,
+                "permissions": perms
+            })
+        return result
+
+    def get_user_details(self, username: str):
+        """Mendapatkan rincian satu user"""
+        username = username.strip().lower()
+        users = self._load_users()
+        if username not in users:
+            return None
+        u = users[username]
+        role = u.get("role", "operator")
+        perms = u.get("permissions") or self.get_default_permissions(role)
+        return {
+            "username": username,
+            "name": u.get("name", username),
+            "role": role,
+            "permissions": perms
+        }
+
+    def add_user(self, username: str, name: str, password: str, role: str = "operator", permissions: dict = None):
+        """Menambahkan akun pengguna baru ke database users.json"""
+        username = username.strip().lower()
+        if not username:
+            return False, "Username tidak boleh kosong."
+        if len(username) < 3:
+            return False, "Username minimal 3 karakter."
+        if not username.replace("_", "").replace("-", "").isalnum():
+            return False, "Username hanya boleh huruf, angka, underscore, atau tanda hubung."
+        if len(password) < 6:
+            return False, "Password minimal 6 karakter."
+
+        users = self._load_users()
+        if username in users:
+            return False, f"Username '{username}' sudah terdaftar dalam sistem."
+
+        if not permissions:
+            permissions = self.get_default_permissions(role)
+
+        salt = secrets.token_hex(16)
+        users[username] = {
+            "role": role,
+            "name": name.strip() if name else username,
+            "salt": salt,
+            "password_hash": self._hash_password(password, salt),
+            "hash_type": "pbkdf2",
+            "permissions": permissions
+        }
+
+        if self._save_users(users):
+            return True, f"Pengguna '{username}' berhasil ditambahkan."
+        return False, "Gagal menyimpan data pengguna ke file sistem."
+
+    def update_user(self, username: str, name: str = None, password: str = None, role: str = None, permissions: dict = None):
+        """Memperbarui informasi nama, password, peran, dan hak akses pengguna"""
+        username = username.strip().lower()
+        users = self._load_users()
+        if username not in users:
+            return False, f"Pengguna '{username}' tidak ditemukan."
+
+        user = users[username]
+        if name is not None and name.strip():
+            user["name"] = name.strip()
+
+        if role is not None and role in ("admin", "operator"):
+            user["role"] = role
+
+        if permissions is not None and isinstance(permissions, dict):
+            user["permissions"] = permissions
+
+        if password is not None and str(password).strip():
+            pw_str = str(password).strip()
+            if len(pw_str) < 6:
+                return False, "Password baru minimal 6 karakter."
+            new_salt = secrets.token_hex(16)
+            user["salt"] = new_salt
+            user["password_hash"] = self._hash_password(pw_str, new_salt)
+            user["hash_type"] = "pbkdf2"
+
+        users[username] = user
+        if self._save_users(users):
+            return True, f"Data pengguna '{username}' berhasil diperbarui."
+        return False, "Gagal menyimpan pembaruan pengguna."
+
+    def delete_user(self, username: str, current_username: str = None):
+        """Menghapus pengguna dari sistem dengan proteksi admin utama dan akun yang sedang aktif"""
+        username = username.strip().lower()
+        if username == "admin":
+            return False, "Akun Administrator utama ('admin') tidak dapat dihapus."
+
+        if current_username and username == current_username.strip().lower():
+            return False, "Tidak dapat menghapus akun yang sedang aktif digunakan saat ini."
+
+        users = self._load_users()
+        if username not in users:
+            return False, f"Pengguna '{username}' tidak ditemukan."
+
+        del users[username]
+        if self._save_users(users):
+            return True, f"Pengguna '{username}' berhasil dihapus dari sistem."
+        return False, "Gagal menghapus data pengguna."

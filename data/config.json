@@ -28,5 +28,6 @@
     "api_endpoint_submit_box": "/production/qc-box",
     "api_timeout": "5",
     "api_auto_sync_batch": true,
-    "api_auto_sync_box": true
+    "api_auto_sync_box": true,
+    "history_retention_days": 30
 }

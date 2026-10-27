@@ -22,6 +22,7 @@ from modbus_io import ModbusController
 from data_manager import DataManager
 from auth_manager import AuthManager
 from login_dialog import LoginDialog, ChangePasswordDialog
+from user_management_dialog import UserManagementDialog
 from api_manager import APIManager
 # --------------------------------
 
@@ -131,6 +132,7 @@ class OmegaBatchApp:
         self.is_simulation = tk.BooleanVar(value=True) 
         self.auto_judge_sim = tk.BooleanVar(value=True) 
         self.history_filter = tk.StringVar(value="last_20") # Default Filter GUI
+        self.retention_days_var = tk.StringVar(value=str(self.data_manager.get_history_retention_days()))
         self.current_filename = ""
         self.total_load_data = 0
         self.batch_start_time = ""
@@ -294,7 +296,7 @@ class OmegaBatchApp:
         self.lbl_footer_user = ttk.Label(footer_frame, text="User: -", font=("Segoe UI", 8, "italic"), foreground="#333333")
         self.lbl_footer_user.pack(side=tk.RIGHT, padx=12)
 
-        ttk.Label(footer_frame, text="● System Ready", font=("Segoe UI", 8, "bold"), foreground="#1e7e34").pack(side=tk.RIGHT, padx=5)
+        ttk.Label(footer_frame, text="● Sistem Siap", font=("Segoe UI", 8, "bold"), foreground="#1e7e34").pack(side=tk.RIGHT, padx=5)
 
         # --- TOP HEADER BAR (Dark Slate #1e293b) ---
         self.top_bar = tk.Frame(self.root, bg="#1e293b", height=42)
@@ -308,11 +310,11 @@ class OmegaBatchApp:
         brand_frame = tk.Frame(self.top_bar, bg="#1e293b")
         brand_frame.pack(side=tk.LEFT, padx=14, pady=5)
         tk.Label(brand_frame, text="Ω OMEGA MX", font=("Segoe UI", 11, "bold"), fg="#ffffff", bg="#1e293b").pack(side=tk.LEFT)
-        tk.Label(brand_frame, text=" | Batch Printing & Dual-QC System (v2.0 API)", font=("Segoe UI", 9), fg="#94a3b8", bg="#1e293b").pack(side=tk.LEFT)
+        tk.Label(brand_frame, text=" | Sistem Cetak Batch & QC Ganda (v2.0)", font=("Segoe UI", 9), fg="#94a3b8", bg="#1e293b").pack(side=tk.LEFT)
 
         # Live System Status Pill in Center
         self.lbl_system_status_pill = tk.Label(
-            self.top_bar, text="● READY", font=("Segoe UI", 9, "bold"),
+            self.top_bar, text="● SIAP", font=("Segoe UI", 9, "bold"),
             fg="#10b981", bg="#064e3b", relief="solid", bd=1, padx=14, pady=2
         )
         self.lbl_system_status_pill.pack(side=tk.LEFT, expand=True)
@@ -355,17 +357,19 @@ class OmegaBatchApp:
         self.tab_history = tk.Frame(self.content_container, bg="#f1f5f9", padx=10, pady=8)
         self.tab_connectivity = tk.Frame(self.content_container, bg="#f1f5f9", padx=10, pady=8)
         self.tab_logs = tk.Frame(self.content_container, bg="#f1f5f9", padx=10, pady=8)
+        self.tab_master = tk.Frame(self.content_container, bg="#f1f5f9", padx=10, pady=8)
 
-        for tab in (self.tab_main, self.tab_history, self.tab_connectivity, self.tab_logs):
+        for tab in (self.tab_main, self.tab_history, self.tab_connectivity, self.tab_logs, self.tab_master):
             tab.grid(row=0, column=0, sticky="nsew")
 
         # Inisialisasi Navigasi Sidebar
-        self.nav_items_order = ["main", "history", "conn", "logs"]
+        self.nav_items_order = ["main", "history", "conn", "logs", "master"]
         self.nav_tab_map = {
             "main": self.tab_main,
             "history": self.tab_history,
             "conn": self.tab_connectivity,
-            "logs": self.tab_logs
+            "logs": self.tab_logs,
+            "master": self.tab_master
         }
         self.tab_to_nav = {v: k for k, v in self.nav_tab_map.items()}
         self.nav_btns = {}
@@ -374,7 +378,8 @@ class OmegaBatchApp:
             ("main", "🖶  Operasi Cetak"),
             ("history", "🕒  Riwayat Cetak"),
             ("conn", "⚙  Koneksi"),
-            ("logs", "📋  Log Aktivitas")
+            ("logs", "📋  Log Aktivitas"),
+            ("master", "🛠  Pengaturan Master")
         ]
 
         self.f_nav_list = tk.Frame(self.sidebar_frame, bg="#1e293b")
@@ -431,6 +436,7 @@ class OmegaBatchApp:
         self.build_main_tab()
         self.build_history_tab()
         self.build_connectivity_tab()
+        self.build_master_tab()
         self.load_hardware_config()
         self.update_hardware_indicators()
 
@@ -451,6 +457,9 @@ class OmegaBatchApp:
 
         if nav_id == "history":
             self.load_history_table()
+        elif nav_id == "master":
+            self.load_users_table()
+            self.load_retention_setting_ui()
 
     def _on_nav_hover(self, nav_id, is_enter):
         """Efek hover kursor pada navigasi sidebar"""
@@ -486,16 +495,16 @@ class OmegaBatchApp:
             if not hasattr(self, 'lbl_system_status_pill'):
                 return
             s = status.upper()
-            if s == "RUNNING":
-                self.lbl_system_status_pill.config(text="● RUNNING", fg="#34d399", bg="#064e3b")
-            elif s == "PAUSED":
-                self.lbl_system_status_pill.config(text="❚❚ PAUSED", fg="#fbbf24", bg="#78350f")
-            elif s == "STOPPED":
-                self.lbl_system_status_pill.config(text="■ STOPPED", fg="#94a3b8", bg="#334155")
-            elif s == "ALARM":
-                self.lbl_system_status_pill.config(text="▲ ALARM", fg="#f87171", bg="#7f1d1d")
+            if s in ("RUNNING", "BERJALAN"):
+                self.lbl_system_status_pill.config(text="● BERJALAN", fg="#34d399", bg="#064e3b")
+            elif s in ("PAUSED", "DIJEDA"):
+                self.lbl_system_status_pill.config(text="❚❚ DIJEDA", fg="#fbbf24", bg="#78350f")
+            elif s in ("STOPPED", "BERHENTI"):
+                self.lbl_system_status_pill.config(text="■ BERHENTI", fg="#94a3b8", bg="#334155")
+            elif s in ("ALARM", "BAHAYA"):
+                self.lbl_system_status_pill.config(text="▲ BAHAYA / ALARAM", fg="#f87171", bg="#7f1d1d")
             else:
-                self.lbl_system_status_pill.config(text="● READY", fg="#10b981", bg="#064e3b")
+                self.lbl_system_status_pill.config(text="● SIAP", fg="#10b981", bg="#064e3b")
         if threading.current_thread() is threading.main_thread():
             _apply()
         else:
@@ -546,72 +555,88 @@ class OmegaBatchApp:
     # MANAJEMEN OTORITAS & SESI USER
     # ==========================================
     def apply_user_permissions(self):
-        """Menerapkan batasan otoritas berdasarkan peran (Admin vs Operator)"""
+        """Menerapkan batasan otoritas pengguna berdasarkan peran dan hak akses granular"""
         if not self.current_user:
             return
 
         role = self.current_user.get("role", "operator")
         username = self.current_user.get("username", "operator")
         name = self.current_user.get("name", username)
+        perms = self.current_user.get("permissions")
+        if not perms or not isinstance(perms, dict):
+            perms = self.auth_manager.get_default_permissions(role)
+
+        allowed_pages = perms.get("pages", ["main", "history", "logs"])
+        allowed_feats = perms.get("features", ["export_csv"])
+        if role == "admin":
+            allowed_pages = ["main", "history", "conn", "logs", "master"]
+            allowed_feats = ["export_csv", "fetch_api", "simulation_mode", "manage_users"]
 
         # 1. Update Judul Jendela & Header Badge
         if role == "admin":
             badge_text = f"ADMIN: {name}"
             badge_bg = "#d97706"
-            self.root.title(f"Omega MX - Batch Printing & QC System [ADMINISTRATOR - {name}]")
+            self.root.title(f"Omega MX - Sistem Cetak Batch & QC [ADMINISTRATOR - {name}]")
         else:
             badge_text = f"OPERATOR: {name}"
             badge_bg = "#1e73be"
-            self.root.title(f"Omega MX - Batch Printing & QC System [OPERATOR - {name}]")
+            self.root.title(f"Omega MX - Sistem Cetak Batch & QC [OPERATOR - {name}]")
 
         if hasattr(self, 'lbl_user_badge'):
             self.lbl_user_badge.config(text=badge_text, bg=badge_bg)
 
         if hasattr(self, 'lbl_footer_user'):
-            self.lbl_footer_user.config(text=f"User: {name} ({role.upper()})")
+            self.lbl_footer_user.config(text=f"Pengguna: {name} ({role.upper()})")
 
-        # 2. Otoritas Tab & Fitur
-        if role == "operator":
-            # Sembunyikan Tab Connectivity Settings untuk Operator
-            try:
-                self.notebook.tab(self.tab_connectivity, state="hidden")
-            except Exception as e:
-                print(f"Error hiding connectivity tab: {e}")
+        # 2. Otoritas Tab Berdasarkan Hak Akses Halaman (pages)
+        hidden_navs = set()
+        for nid in self.nav_items_order:
+            if nid not in allowed_pages:
+                hidden_navs.add(nid)
+        self._repack_nav_buttons(hidden_navs)
 
-            # Kunci Mode Simulasi (Operator wajib mode Hardware Produksi)
-            if hasattr(self, 'chk_simulation'):
+        # Jika tab yang sedang aktif tidak diizinkan, kembalikan ke tab utama (main)
+        if getattr(self, 'active_nav', None) in hidden_navs:
+            self.switch_nav("main")
+
+        # 3. Kontrol Mode Simulasi
+        can_sim = "simulation_mode" in allowed_feats or role == "admin"
+        if hasattr(self, 'chk_simulation'):
+            if not can_sim:
                 self.is_simulation.set(False)
                 self.chk_simulation.config(state="disabled")
-            if hasattr(self, 'chk_auto_judge'):
-                self.chk_auto_judge.config(state="disabled")
-
-            # Sembunyikan Card Simulator (Hanya untuk Admin / Dev)
-            if hasattr(self, 'card_sim'):
-                self.card_sim.pack_forget()
-
-            # Jika saat ini berada di tab Connectivity, kembalikan ke tab Print Operation
-            try:
-                if str(getattr(self, 'active_tab', '')) == str(self.tab_connectivity):
-                    self.switch_nav("main")
-            except Exception:
-                pass
-
-        else: # Role == 'admin'
-            # Tampilkan kembali Tab Connectivity Settings untuk Admin
-            try:
-                self.notebook.tab(self.tab_connectivity, state="normal")
-            except Exception as e:
-                print(f"Error showing connectivity tab: {e}")
-
-            # Buka kunci Mode Simulasi
-            if hasattr(self, 'chk_simulation'):
+            else:
                 self.chk_simulation.config(state="normal")
-            if hasattr(self, 'chk_auto_judge'):
-                self.chk_auto_judge.config(state="normal")
-
-            # Tampilkan kembali Card Simulator jika belum terpasang
-            if hasattr(self, 'card_sim') and not self.card_sim.winfo_manager():
+        if hasattr(self, 'chk_auto_judge'):
+            self.chk_auto_judge.config(state="normal" if can_sim else "disabled")
+        if hasattr(self, 'card_sim'):
+            if not can_sim:
+                self.card_sim.pack_forget()
+            elif not self.card_sim.winfo_manager():
                 self.card_sim.pack(fill=tk.X, pady=(4, 0))
+
+        # 4. Kontrol Fitur Ekspor CSV
+        can_export = "export_csv" in allowed_feats or role == "admin"
+        if hasattr(self, 'btn_export_history_csv'):
+            self.btn_export_history_csv.config(state="normal" if can_export else "disabled")
+        if hasattr(self, 'btn_export_all_coupons'):
+            self.btn_export_all_coupons.config(state="normal" if can_export else "disabled")
+
+        # 5. Kontrol Fitur Tarik API
+        can_api = "fetch_api" in allowed_feats or role == "admin"
+        if hasattr(self, 'btn_api'):
+            self.btn_api.config(state="normal" if can_api else "disabled")
+
+        # 6. Kontrol Fitur Kelola Pengguna & Retensi di Tab Master
+        can_manage = "manage_users" in allowed_feats or role == "admin"
+        if hasattr(self, 'btn_master_add_user'):
+            self.btn_master_add_user.config(state="normal" if can_manage else "disabled")
+        if hasattr(self, 'btn_master_edit_user'):
+            self.btn_master_edit_user.config(state="normal" if can_manage else "disabled")
+        if hasattr(self, 'btn_master_del_user'):
+            self.btn_master_del_user.config(state="normal" if can_manage else "disabled")
+        if hasattr(self, 'btn_save_retention'):
+            self.btn_save_retention.config(state="normal" if can_manage else "disabled")
 
     def on_initial_login_success(self, user_info):
         """Dipanggil saat login awal berhasil"""
@@ -665,16 +690,16 @@ class OmegaBatchApp:
 
         tk.Label(card_src, text="Sumber Data", font=("Segoe UI", 9, "bold"), fg="#1e293b", bg="#ffffff").pack(side=tk.LEFT, padx=(0, 8))
         
-        btn_load = tk.Button(card_src, text="📂 Load File", font=("Segoe UI", 8, "bold"),
+        btn_load = tk.Button(card_src, text="📂 Pilih Berkas", font=("Segoe UI", 8, "bold"),
                              bg="#f8fafc", fg="#1e293b", relief="solid", bd=1, padx=8, pady=3,
                              cursor="hand2", command=self.load_file)
         btn_load.pack(side=tk.LEFT, padx=(0, 4))
 
-        btn_api = tk.Button(card_src, text="☁ Tarik API", font=("Segoe UI", 8, "bold"),
+        self.btn_api = tk.Button(card_src, text="☁ Tarik API", font=("Segoe UI", 8, "bold"),
                             bg="#eff6ff", fg="#1d4ed8", activebackground="#dbeafe", activeforeground="#1e40af",
                             relief="solid", bd=1, highlightbackground="#93c5fd", padx=8, pady=3,
                             cursor="hand2", command=self.open_fetch_api_dialog)
-        btn_api.pack(side=tk.LEFT, padx=(0, 8))
+        self.btn_api.pack(side=tk.LEFT, padx=(0, 8))
 
         self.lbl_file_chip = tk.Label(card_src, text="Belum ada data dipilih", font=("Segoe UI", 8),
                                       fg="#0f766e", bg="#ccfbf1", relief="solid", bd=1, padx=8, pady=2)
@@ -909,7 +934,9 @@ class OmegaBatchApp:
         # --- TOMBOL AKSI HISTORI (Dipack BOTTOM terlebih dahulu) ---
         btn_frame = ttk.Frame(self.tab_history)
         btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(4, 2))
-        ttk.Button(btn_frame, text="BUKA FILE EXCEL TERPILIH", command=self.open_selected_history).pack(side=tk.RIGHT)
+        self.btn_export_history_csv = ttk.Button(btn_frame, text="📥 EKSPOR DATA MENTAH CSV", command=self.export_history_raw_csv)
+        self.btn_export_history_csv.pack(side=tk.LEFT, padx=(0, 6))
+        ttk.Button(btn_frame, text="BUKA BERKAS EXCEL TERPILIH", command=self.open_selected_history).pack(side=tk.RIGHT)
 
         # --- TABEL DATA HISTORI ---
         self.hist_tree = ttk.Treeview(self.tab_history, 
@@ -1547,7 +1574,8 @@ class OmegaBatchApp:
         c_sku, c_qr, c_matl = self.sel_sku.get(), self.sel_qr.get(), self.sel_matl.get()
         if all(c in self.df.columns for c in [c_sku, c_qr, c_matl]):
             # Pengecekan data riwayat cetak 30 hari terakhir
-            past_coupons = self.data_manager.get_coupons_in_last_days(days=30)
+            retention_days = self.data_manager.get_history_retention_days()
+            past_coupons = self.data_manager.get_coupons_in_last_days(days=retention_days)
             seen_in_current_file = {}
             dup_30d_count = 0
             dup_file_count = 0
@@ -1579,7 +1607,7 @@ class OmegaBatchApp:
                 elif raw_qr in past_coupons:
                     past_info = past_coupons[raw_qr]
                     ts_date = past_info.get('timestamp', '')[:10]
-                    status_str = f"Duplikat 30H ({ts_date})"
+                    status_str = f"Duplikat {retention_days}H ({ts_date})"
                     tag = ('duplicate',)
                     dup_30d_count += 1
                 elif raw_qr in seen_in_current_file:
@@ -1622,16 +1650,16 @@ class OmegaBatchApp:
                 self.stat_total.set(f"{valid_count} ({total_duplicate} Skip)")
                 warn_msg = f"Ditemukan {total_duplicate} data kupon duplikat!\n"
                 if dup_30d_count > 0:
-                    warn_msg += f"- {dup_30d_count} kupon pernah dicetak dalam 30 hari terakhir.\n"
+                    warn_msg += f"- {dup_30d_count} kupon pernah dicetak dalam {retention_days} hari terakhir.\n"
                 if dup_file_count > 0:
                     warn_msg += f"- {dup_file_count} kupon duplikat di dalam file ini sendiri.\n"
                 warn_msg += f"\nData duplikat telah ditandai (warna merah muda) dan otomatis DILEWATI (tidak dicetak).\nSiap dicetak: {valid_count} dari {len(self.df)} baris."
                 
-                self.log_msg(f"[VALIDASI] Selesai: {total_duplicate} duplikat dilewati ({dup_30d_count} dari 30 hari terakhir, {dup_file_count} internal file). Siap dicetak: {valid_count} data.")
+                self.log_msg(f"[VALIDASI] Selesai: {total_duplicate} duplikat dilewati ({dup_30d_count} dari {retention_days} hari terakhir, {dup_file_count} internal file). Siap dicetak: {valid_count} data.")
                 messagebox.showwarning("Peringatan Duplikasi Kupon", warn_msg)
             else:
                 self.stat_total.set(str(len(self.df)))
-                self.log_msg(f"[VALIDASI] Selesai: Semua {len(self.df)} kupon unik & valid (tidak ada duplikasi dalam 30 hari terakhir).")
+                self.log_msg(f"[VALIDASI] Selesai: Semua {len(self.df)} kupon unik & valid (tidak ada duplikasi dalam {retention_days} hari terakhir).")
 
     # ==========================================
     # 4. GRAPHICS & RENDER (Preview & PDF)
@@ -3701,6 +3729,305 @@ class OmegaBatchApp:
 
         ttk.Button(bot_f, text="📋 Salin Spesifikasi ke Clipboard", command=_copy_clipboard).pack(side=tk.LEFT)
         ttk.Button(bot_f, text="Tutup", command=win.destroy).pack(side=tk.RIGHT)
+
+    # ==========================================
+    # 8. PENGATURAN MASTER & MANAJEMEN PENGGUNA
+    # ==========================================
+    def build_master_tab(self):
+        """Membangun tampilan Halaman Pengaturan Master (Manajemen Akun Pengguna & Masa Simpan Riwayat)"""
+        title_frame = ttk.Frame(self.tab_master)
+        title_frame.pack(fill=tk.X, pady=(0, 6))
+        ttk.Label(title_frame, text="PENGATURAN MASTER SISTEM", font=("Segoe UI", 12, "bold"), foreground="#1c446c").pack(side=tk.LEFT)
+        ttk.Label(title_frame, text="Pengaturan Hak Akses Pengguna & Masa Simpan Riwayat Data", font=("Segoe UI", 8, "italic"), foreground="#64748b").pack(side=tk.LEFT, padx=10, pady=(2, 0))
+
+        # --- CARD 1: MANAJEMEN AKUN PENGGUNA ---
+        lf_users = ttk.LabelFrame(self.tab_master, text=" Manajemen Akun Pengguna & Hak Akses ", padding="8")
+        lf_users.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
+
+        # Toolbar Tombol Manajemen Pengguna
+        tb_users = ttk.Frame(lf_users)
+        tb_users.pack(fill=tk.X, pady=(0, 6))
+
+        self.btn_master_add_user = ttk.Button(tb_users, text="➕ Tambah Pengguna Baru", command=self.open_add_user_dialog)
+        self.btn_master_add_user.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.btn_master_edit_user = ttk.Button(tb_users, text="✏️ Ubah Pengguna Terpilih", command=self.open_edit_user_dialog)
+        self.btn_master_edit_user.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.btn_master_del_user = ttk.Button(tb_users, text="🗑️ Hapus Pengguna", command=self.delete_selected_user)
+        self.btn_master_del_user.pack(side=tk.LEFT, padx=(0, 5))
+
+        ttk.Button(tb_users, text="🔄 Segarkan Data", command=self.load_users_table).pack(side=tk.RIGHT)
+
+        # Tabel Pengguna (Treeview)
+        cols = ("username", "name", "role", "pages", "features")
+        self.user_tree = ttk.Treeview(lf_users, columns=cols, show='headings', height=6)
+        self.user_tree.heading("username", text="ID Pengguna")
+        self.user_tree.heading("name", text="Nama Lengkap")
+        self.user_tree.heading("role", text="Peran (Role)")
+        self.user_tree.heading("pages", text="Hak Akses Halaman")
+        self.user_tree.heading("features", text="Hak Akses Fitur")
+
+        self.user_tree.column("username", width=110, anchor=tk.W)
+        self.user_tree.column("name", width=140, anchor=tk.W)
+        self.user_tree.column("role", width=90, anchor=tk.CENTER)
+        self.user_tree.column("pages", width=220, anchor=tk.W)
+        self.user_tree.column("features", width=220, anchor=tk.W)
+
+        scr_u = ttk.Scrollbar(lf_users, orient="vertical", command=self.user_tree.yview)
+        self.user_tree.configure(yscrollcommand=scr_u.set)
+
+        self.user_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scr_u.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.user_tree.bind("<Double-1>", lambda e: self.open_edit_user_dialog())
+
+        # --- CARD 2: PENGATURAN MASA SIMPAN RIWAYAT (RETENSI & OVERWRITE) ---
+        lf_ret = ttk.LabelFrame(self.tab_master, text=" Pengaturan Masa Simpan Riwayat (Retensi Data & Overwrite History) ", padding="10")
+        lf_ret.pack(fill=tk.X, pady=(0, 4))
+
+        lbl_desc = ttk.Label(
+            lf_ret,
+            text="Batas waktu usia (dalam hari) untuk pengecekan otomatis kupon duplikat dan pembersihan file catatan riwayat lama.\nKupon yang sama dalam rentang hari ini akan dicegah agar tidak tercetak dua kali demi menjaga integritas produksi.",
+            font=("Segoe UI", 8), foreground="#475569", justify=tk.LEFT
+        )
+        lbl_desc.pack(anchor=tk.W, pady=(0, 8))
+
+        row_input = ttk.Frame(lf_ret)
+        row_input.pack(fill=tk.X, pady=(0, 6))
+
+        ttk.Label(row_input, text="Masa Simpan Riwayat (Hari):", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT, padx=(0, 8))
+
+        self.spin_retention_days = ttk.Spinbox(
+            row_input, from_=1, to=3650, textvariable=self.retention_days_var, width=8, font=("Segoe UI", 9)
+        )
+        self.spin_retention_days.pack(side=tk.LEFT, padx=(0, 12))
+
+        ttk.Label(row_input, text="Pilihan Cepat:", font=("Segoe UI", 8, "italic"), foreground="#64748b").pack(side=tk.LEFT, padx=(0, 6))
+
+        preset_days = [7, 14, 30, 60, 90, 180, 365]
+        for d in preset_days:
+            b = ttk.Button(row_input, text=f"{d}H", width=4, command=lambda val=d: self.retention_days_var.set(str(val)))
+            b.pack(side=tk.LEFT, padx=2)
+
+        self.btn_save_retention = ttk.Button(row_input, text="💾 Simpan Masa Simpan", command=self.save_retention_setting)
+        self.btn_save_retention.pack(side=tk.RIGHT, padx=5)
+
+        # Baris Pemeliharaan & Ekspor Master Kupon
+        row_maint = ttk.Frame(lf_ret)
+        row_maint.pack(fill=tk.X, pady=(4, 0))
+
+        ttk.Label(row_maint, text="Tindakan Pemeliharaan Riwayat:", font=("Segoe UI", 8, "bold"), foreground="#1c446c").pack(side=tk.LEFT, padx=(0, 10))
+
+        self.btn_clean_logs = ttk.Button(row_maint, text="🧹 Bersihkan Catatan Log Tua Sekarang", command=self.run_manual_log_cleanup)
+        self.btn_clean_logs.pack(side=tk.LEFT, padx=(0, 6))
+
+        self.btn_export_all_coupons = ttk.Button(row_maint, text="📥 Ekspor Master Kupon Tercetak (.csv)", command=self.export_raw_coupons_csv_gui)
+        self.btn_export_all_coupons.pack(side=tk.LEFT, padx=6)
+
+        # Inisialisasi data tabel
+        self.load_users_table()
+        self.load_retention_setting_ui()
+
+    def load_users_table(self):
+        """Memuat daftar seluruh pengguna dari AuthManager ke Treeview"""
+        if not hasattr(self, 'user_tree'):
+            return
+        for item in self.user_tree.get_children():
+            self.user_tree.delete(item)
+
+        page_names = {
+            "main": "Operasi",
+            "history": "Riwayat",
+            "conn": "Koneksi",
+            "logs": "Log",
+            "master": "Master"
+        }
+        feat_names = {
+            "export_csv": "Ekspor CSV",
+            "fetch_api": "Tarik API",
+            "simulation_mode": "Simulasi",
+            "manage_users": "Kelola Akun"
+        }
+
+        try:
+            users_list = self.auth_manager.get_all_users_details()
+            for u in users_list:
+                uname = u.get("username", "")
+                name = u.get("name", "")
+                role = u.get("role", "operator").upper()
+                perms = u.get("permissions", {})
+                
+                pages_raw = perms.get("pages", [])
+                pages_disp = ", ".join([page_names.get(p, p) for p in pages_raw]) if pages_raw else "-"
+
+                feats_raw = perms.get("features", [])
+                feats_disp = ", ".join([feat_names.get(f, f) for f in feats_raw]) if feats_raw else "-"
+
+                self.user_tree.insert("", tk.END, values=(uname, name, role, pages_disp, feats_disp))
+        except Exception as e:
+            print(f"Error loading users table: {e}")
+
+    def open_add_user_dialog(self):
+        """Membuka modal dialog formulir pendaftaran pengguna baru"""
+        curr = self.current_user.get("username") if self.current_user else None
+        UserManagementDialog(self.root, self.auth_manager, user_to_edit=None, current_username=curr, on_success=self.load_users_table)
+
+    def open_edit_user_dialog(self):
+        """Membuka modal dialog formulir ubah pengguna terpilih"""
+        if not hasattr(self, 'user_tree'):
+            return
+        sel = self.user_tree.selection()
+        if not sel:
+            messagebox.showwarning("Peringatan", "Pilih salah satu pengguna pada tabel terlebih dahulu.", parent=self.root)
+            return
+
+        item = self.user_tree.item(sel[0])
+        uname = str(item['values'][0]).strip().lower()
+
+        u_details = self.auth_manager.get_user_details(uname)
+        if not u_details:
+            messagebox.showerror("Kesalahan", f"Data pengguna '{uname}' tidak ditemukan.", parent=self.root)
+            return
+
+        curr = self.current_user.get("username") if self.current_user else None
+        UserManagementDialog(self.root, self.auth_manager, user_to_edit=u_details, current_username=curr, on_success=self._on_user_updated)
+
+    def _on_user_updated(self):
+        """Dipanggil setelah data pengguna berhasil diperbarui dari dialog"""
+        self.load_users_table()
+        if self.current_user:
+            uname = self.current_user.get("username", "")
+            updated_info = self.auth_manager.get_user_details(uname)
+            if updated_info:
+                self.current_user = updated_info
+                self.apply_user_permissions()
+
+    def delete_selected_user(self):
+        """Menghapus akun pengguna yang dipilih di tabel"""
+        if not hasattr(self, 'user_tree'):
+            return
+        sel = self.user_tree.selection()
+        if not sel:
+            messagebox.showwarning("Peringatan", "Pilih salah satu pengguna yang ingin dihapus pada tabel.", parent=self.root)
+            return
+
+        item = self.user_tree.item(sel[0])
+        uname = str(item['values'][0]).strip().lower()
+
+        if uname == "admin":
+            messagebox.showwarning("Dilarang", "Akun Administrator utama ('admin') tidak dapat dihapus demi keamanan sistem.", parent=self.root)
+            return
+
+        curr = self.current_user.get("username") if self.current_user else ""
+        if uname == curr.lower():
+            messagebox.showwarning("Dilarang", "Tidak dapat menghapus akun yang sedang aktif digunakan saat ini.", parent=self.root)
+            return
+
+        if not messagebox.askyesno("Konfirmasi Hapus Pengguna", f"Apakah Anda yakin ingin menghapus akun pengguna '{uname}' secara permanen?", parent=self.root):
+            return
+
+        ok, msg = self.auth_manager.delete_user(uname, current_username=curr)
+        if ok:
+            messagebox.showinfo("Berhasil", msg, parent=self.root)
+            self.log_msg(f"[MASTER] {msg}")
+            self.load_users_table()
+        else:
+            messagebox.showerror("Gagal", msg, parent=self.root)
+
+    def load_retention_setting_ui(self):
+        """Memuat nilai masa simpan dari config ke widget antarmuka"""
+        try:
+            days = self.data_manager.get_history_retention_days()
+            self.retention_days_var.set(str(days))
+        except Exception:
+            pass
+
+    def save_retention_setting(self):
+        """Menyimpan nilai masa simpan riwayat ke config.json"""
+        raw_val = self.retention_days_var.get().strip()
+        try:
+            days = int(raw_val)
+            if days < 1:
+                raise ValueError("Harus minimal 1 hari")
+        except ValueError:
+            messagebox.showerror("Input Tidak Valid", "Masa simpan riwayat harus berupa bilangan bulat positif (minimal 1 hari).", parent=self.root)
+            return
+
+        ok = self.data_manager.set_history_retention_days(days)
+        if ok:
+            messagebox.showinfo("Pengaturan Disimpan", f"Masa simpan riwayat produksi berhasil diatur ke {days} hari.\nPengecekan duplikasi kupon kardus kini menggunakan batas waktu {days} hari.", parent=self.root)
+            self.log_msg(f"[MASTER] Masa simpan riwayat (retensi duplikasi) diatur ke: {days} hari.")
+            if self.df is not None:
+                self.update_table()
+        else:
+            messagebox.showerror("Gagal Menyimpan", "Gagal menyimpan konfigurasi masa simpan ke file sistem.", parent=self.root)
+
+    def run_manual_log_cleanup(self):
+        """Menjalankan pembersihan berkas catatan log tua secara manual"""
+        days = self.data_manager.get_history_retention_days()
+        if not messagebox.askyesno("Konfirmasi Pembersihan Log", f"Sistem akan memeriksa dan menghapus file log teks lama yang usianya melebihi {days} hari.\nLanjutkan pembersihan?", parent=self.root):
+            return
+        try:
+            self.data_manager.cleanup_old_logs(days=days)
+            messagebox.showinfo("Pembersihan Selesai", f"Pembersihan catatan log lama (> {days} hari) telah selesai dilaksanakan.", parent=self.root)
+            self.log_msg(f"[MASTER] Pembersihan berkas log lama (> {days} hari) selesai dijalankan.")
+        except Exception as e:
+            messagebox.showerror("Kesalahan", f"Terjadi kesalahan saat pembersihan log: {e}", parent=self.root)
+
+    def export_history_raw_csv(self):
+        """Mengekspor data riwayat produksi ke berkas CSV mentah"""
+        default_name = f"riwayat_produksi_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        file_path = filedialog.asksaveasfilename(
+            parent=self.root,
+            title="Simpan Ekspor Data Riwayat Produksi (CSV)",
+            defaultextension=".csv",
+            filetypes=[("Berkas CSV (*.csv)", "*.csv"), ("Semua Berkas (*.*)", "*.*")],
+            initialfile=default_name
+        )
+        if not file_path:
+            return
+
+        f_val = self.history_filter.get()
+        s_date = self.cal_start.get_date().strftime('%Y-%m-%d') if f_val == "by_date" else None
+        e_date = self.cal_end.get_date().strftime('%Y-%m-%d') if f_val == "by_date" else None
+
+        ok = self.data_manager.export_summary_csv(file_path, filter_val=f_val, start_date=s_date, end_date=e_date)
+        if ok:
+            self.log_msg(f"[EKSPOR] Data riwayat produksi berhasil diekspor ke CSV: {file_path}")
+            if messagebox.askyesno("Ekspor Berhasil", f"Data riwayat produksi berhasil disimpan ke:\n{file_path}\n\nApakah Anda ingin membuka folder lokasi berkas?", parent=self.root):
+                try:
+                    folder = os.path.dirname(os.path.abspath(file_path))
+                    os.startfile(folder)
+                except Exception:
+                    pass
+        else:
+            messagebox.showerror("Gagal Ekspor", "Terjadi kesalahan saat menulis berkas CSV riwayat produksi.", parent=self.root)
+
+    def export_raw_coupons_csv_gui(self):
+        """Mengekspor seluruh master database kupon tercetak ke berkas CSV"""
+        default_name = f"master_kupon_tercetak_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        file_path = filedialog.asksaveasfilename(
+            parent=self.root,
+            title="Simpan Ekspor Seluruh Master Kupon (CSV)",
+            defaultextension=".csv",
+            filetypes=[("Berkas CSV (*.csv)", "*.csv"), ("Semua Berkas (*.*)", "*.*")],
+            initialfile=default_name
+        )
+        if not file_path:
+            return
+
+        ok = self.data_manager.export_raw_coupons_csv(file_path)
+        if ok:
+            self.log_msg(f"[EKSPOR] Master kupon tercetak berhasil diekspor ke CSV: {file_path}")
+            if messagebox.askyesno("Ekspor Berhasil", f"Seluruh data master kupon berhasil disimpan ke:\n{file_path}\n\nApakah Anda ingin membuka folder lokasi berkas?", parent=self.root):
+                try:
+                    folder = os.path.dirname(os.path.abspath(file_path))
+                    os.startfile(folder)
+                except Exception:
+                    pass
+        else:
+            messagebox.showerror("Gagal Ekspor", "Terjadi kesalahan saat mengekspor database master kupon.", parent=self.root)
 
     def on_closing(self):
         """ Memastikan aplikasi tutup total, socket hardware diputus dengan aman, dan CMD kembali normal """

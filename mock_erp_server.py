@@ -38,43 +38,43 @@ SAMPLE_WORK_ORDERS = [
                 "ProductSKU": "NK 6173 BTGT",
                 "CouponCode_R1": "ECE4TUE11",
                 "CouponCode_R2": "3XAHNTE9",
-                "MaterialCode": "NK 6173 BTGT-83IA00120"
+                "MaterialCode": "NK 6173 BTGT-83IA00130"
             },
             {
                 "ProductSKU": "NK 6173 BTGT",
-                "CouponCode_R1": "ECE4TUE12",
+                "CouponCode_R1": "ECE4TUE22",
                 "CouponCode_R2": "3X63GCJZ",
-                "MaterialCode": "NK 6173 BTGT-83IA00121"
+                "MaterialCode": "NK 6173 BTGT-83IA00131"
             },
             {
                 "ProductSKU": "NK 6173 BTGT",
-                "CouponCode_R1": "ECE4TUE13",
+                "CouponCode_R1": "ECE4TUE23",
                 "CouponCode_R2": "3XJHJ6AZ",
-                "MaterialCode": "NK 6173 BTGT-83IA00122"
+                "MaterialCode": "NK 6173 BTGT-83IA00132"
             },
             {
                 "ProductSKU": "NK 6173 BTGT",
-                "CouponCode_R1": "ECE4TUE14",
+                "CouponCode_R1": "ECE4TUE24",
                 "CouponCode_R2": "3XNFCFA7",
-                "MaterialCode": "NK 6173 BTGT-83IA00123"
+                "MaterialCode": "NK 6173 BTGT-83IA00133"
             },
             {
                 "ProductSKU": "NK 6173 BTGT",
-                "CouponCode_R1": "ECE4TUE15",
+                "CouponCode_R1": "ECE4TUE25",
                 "CouponCode_R2": "3XNUAMFA",
-                "MaterialCode": "NK 6173 BTGT-83IA00124"
+                "MaterialCode": "NK 6173 BTGT-83IA00134"
             },
             {
                 "ProductSKU": "NK 6173 BTGT",
-                "CouponCode_R1": "ECE4TUE16",
+                "CouponCode_R1": "ECE4TUE26",
                 "CouponCode_R2": "3XQ44F39",
-                "MaterialCode": "NK 6173 BTGT-83IA00125"
+                "MaterialCode": "NK 6173 BTGT-83IA00135"
             },
             {
                 "ProductSKU": "NK 6173 BTGT",
-                "CouponCode_R1": "ECE4TUE17",
+                "CouponCode_R1": "ECE4TUE27",
                 "CouponCode_R2": "3XNQNAMF",
-                "MaterialCode": "NK 6173 BTGT-83IA00126"
+                "MaterialCode": "NK 6173 BTGT-83IA00136"
             },
             {
                 "ProductSKU": "NK 6173 BTGT",

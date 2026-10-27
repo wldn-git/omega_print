@@ -49,18 +49,75 @@ class DataManager:
             print(f"Error saving config.json: {e}")
             return False
 
-    def cleanup_old_logs(self):
-        """Menghapus file txt log yang umurnya > 30 Hari"""
+    def get_history_retention_days(self) -> int:
+        """Mendapatkan batas masa simpan / overwrite riwayat kupon & log dari konfigurasi (default 30 hari)"""
+        cfg = self.load_config()
         try:
+            return max(1, int(cfg.get("history_retention_days", 30)))
+        except (ValueError, TypeError):
+            return 30
+
+    def set_history_retention_days(self, days: int) -> bool:
+        """Menyimpan batas masa simpan / overwrite riwayat kupon & log ke config.json"""
+        try:
+            days = max(1, int(days))
+            cfg = self.load_config()
+            cfg["history_retention_days"] = days
+            return self.save_config(cfg)
+        except Exception as e:
+            print(f"Error setting retention days: {e}")
+            return False
+
+    def cleanup_old_logs(self, days: int = None):
+        """Menghapus file txt log yang umurnya melebihi batas masa simpan (retention days)"""
+        try:
+            if days is None:
+                days = self.get_history_retention_days()
             now_time = time.time()
+            cutoff_seconds = days * 86400
             for filename in os.listdir(self.log_dir):
                 filepath = os.path.join(self.log_dir, filename)
                 if os.path.isfile(filepath):
-                    if os.stat(filepath).st_mtime < (now_time - (30 * 86400)):
+                    if os.stat(filepath).st_mtime < (now_time - cutoff_seconds):
                         os.remove(filepath)
-                        print(f"File log lama dihapus otomatis: {filename}")
+                        print(f"File log lama dihapus otomatis (> {days} hari): {filename}")
         except Exception as e: 
             print(f"Error cleanup logs: {e}")
+
+    def export_summary_csv(self, target_filepath: str, filter_val: str = None, start_date: str = None, end_date: str = None) -> bool:
+        """Mengekspor data ringkasan riwayat produksi ke file CSV mentah"""
+        try:
+            if filter_val:
+                df = self.get_filtered_history(filter_val, start_date, end_date)
+            elif os.path.exists(self.history_log_file):
+                df = pd.read_csv(self.history_log_file)
+            else:
+                df = pd.DataFrame()
+
+            if df.empty:
+                # Tulis file kosong dengan header
+                headers = ["Waktu_Mulai", "Waktu_Selesai", "Durasi", "Source", "Total_Data", "Total_Print", "NG_Level", "Report_File"]
+                pd.DataFrame(columns=headers).to_csv(target_filepath, index=False, encoding='utf-8')
+            else:
+                df.to_csv(target_filepath, index=False, encoding='utf-8')
+            return True
+        except Exception as e:
+            print(f"Error exporting summary CSV: {e}")
+            return False
+
+    def export_raw_coupons_csv(self, target_filepath: str) -> bool:
+        """Mengekspor data mentah seluruh index kupon kardus tercetak ke file CSV"""
+        try:
+            self.ensure_coupon_index()
+            if os.path.exists(self.coupon_index_file):
+                df = pd.read_csv(self.coupon_index_file, dtype=str, keep_default_na=False)
+            else:
+                df = pd.DataFrame(columns=['Coupon', 'Timestamp', 'Status', 'Source_File', 'Report_File'])
+            df.to_csv(target_filepath, index=False, encoding='utf-8')
+            return True
+        except Exception as e:
+            print(f"Error exporting raw coupons CSV: {e}")
+            return False
 
     @staticmethod
     def sanitize_field(val: str) -> str:

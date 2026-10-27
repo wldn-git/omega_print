@@ -2,7 +2,7 @@
 import os
 import sys
 import pandas as pd
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, send_file, Response, request
 
 def get_base_dir():
     try:
@@ -41,6 +41,27 @@ class AnalyticsServer:
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)})
 
+        # Endpoint Ekspor Data Mentah CSV untuk Web Analytics
+        @self.app.route('/api/v1/export-raw-csv', methods=['GET'])
+        def export_raw_csv():
+            try:
+                if os.path.exists(self.history_log_file):
+                    return send_file(
+                        self.history_log_file,
+                        mimetype="text/csv",
+                        as_attachment=True,
+                        download_name="riwayat_produksi_mentah.csv"
+                    )
+                else:
+                    csv_content = "Waktu_Mulai,Waktu_Selesai,Durasi,Source,Total_Data,Total_Print,NG_Level,Report_File\n"
+                    return Response(
+                        csv_content,
+                        mimetype="text/csv",
+                        headers={"Content-Disposition": "attachment;filename=riwayat_produksi_mentah.csv"}
+                    )
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 500
+
         # === ENDPOINTS REST API V1 UNTUK SISTEM UTAMA ===
         @self.app.route('/api/v1/health', methods=['GET'])
         def api_health():
@@ -65,7 +86,6 @@ class AnalyticsServer:
         def api_v1_history():
             return get_history()
 
-        from flask import request
         @self.app.route('/api/v1/work-order/push', methods=['POST'])
         def api_push_work_order():
             try:
@@ -92,7 +112,7 @@ class AnalyticsServer:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Omega MX - Management Room Production Analytics (1080p Widescreen)</title>
+    <title>Omega MX - Analisis Produksi Ruang Manajemen (Widescreen 1080p)</title>
     <script src="/assets/chart.umd.js"></script>
     <style>
         :root {
@@ -132,7 +152,7 @@ class AnalyticsServer:
             flex-direction: column;
         }
 
-        /* Top Navbar */
+        /* Navigasi Atas */
         .navbar {
             background-color: #0f172a;
             color: #ffffff;
@@ -242,7 +262,7 @@ class AnalyticsServer:
         .dot-amber { background-color: #f59e0b; }
         .dot-red   { background-color: #ef4444; }
 
-        /* Widescreen 1920x1080 Dual Master Panels Layout */
+        /* Widescreen 1920x1080 Dua Panel Utama */
         .dashboard-main {
             width: 100%;
             max-width: 1920px;
@@ -261,7 +281,7 @@ class AnalyticsServer:
             }
         }
 
-        /* MASTER PANEL FRAMEWORK */
+        /* FRAMEWORK PANEL UTAMA */
         .master-panel {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -280,7 +300,7 @@ class AnalyticsServer:
             border-top: 4px solid var(--accent-history);
         }
 
-        /* Master Panel Header */
+        /* Header Panel Utama */
         .panel-header-bar {
             padding: 10px 16px;
             display: flex;
@@ -428,7 +448,7 @@ class AnalyticsServer:
         .hw-val-online { font-weight: 700; color: #166534; }
         .hw-val-offline { font-weight: 700; color: #64748b; }
 
-        /* HMI CARDS (Di dalam Panel Kiri) */
+        /* KARTU HMI */
         .hmi-cards-row-top {
             display: grid;
             grid-template-columns: 1.3fr 1fr;
@@ -455,7 +475,7 @@ class AnalyticsServer:
             align-items: center;
         }
 
-        /* Gauge */
+        /* Busur Kemajuan */
         .gauge-layout {
             display: flex;
             align-items: center;
@@ -521,7 +541,7 @@ class AnalyticsServer:
             margin-top: 5px;
         }
 
-        /* OK / NG */
+        /* Total Lolos & Total Afkir */
         .ok-ng-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -689,7 +709,7 @@ class AnalyticsServer:
             max-height: 150px;
         }
 
-        /* Table Box */
+        /* Kotak Tabel */
         .table-box-clean {
             background: #ffffff;
             border: 1px solid var(--border);
@@ -707,7 +727,28 @@ class AnalyticsServer:
             font-size: 0.76rem;
             font-weight: 700;
             color: var(--text-title);
-            margin-bottom: 6px;
+            margin-bottom: 8px;
+        }
+
+        .btn-download-csv {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+            padding: 3px 9px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-download-csv:hover {
+            background: #0284c7;
+            border-color: #0284c7;
+            color: #ffffff;
         }
 
         .table-wrap {
@@ -775,7 +816,7 @@ class AnalyticsServer:
     </style>
 </head>
 <body>
-    <!-- Top Navigation Bar -->
+    <!-- Navigasi Atas -->
     <nav class="navbar">
         <div class="nav-brand">
             <div class="brand-icon">
@@ -785,8 +826,8 @@ class AnalyticsServer:
                     <line x1="12" y1="17" x2="12" y2="21"></line>
                 </svg>
             </div>
-            <h1>OMEGA MX PRODUCTION ANALYTICS</h1>
-            <span class="badge-dept">MANAGEMENT ROOM</span>
+            <h1>ANALISIS PRODUKSI OMEGA MX</h1>
+            <span class="badge-dept">RUANG MANAJEMEN</span>
         </div>
         <div class="nav-right">
             <button class="btn-fullscreen" onclick="toggleFullScreen()" title="Tampilkan Layar Penuh">
@@ -798,22 +839,22 @@ class AnalyticsServer:
             <span class="clock-display" id="clockText">--:--:-- WIB</span>
             <span class="badge-live" id="badgeLive">
                 <span class="dot-status dot-green" id="dotLive"></span>
-                <span id="textLive">LIVE</span>
+                <span id="textLive">LANGSUNG</span>
             </span>
         </div>
     </nav>
 
-    <!-- WIDESCREEN DASHBOARD (1920x1080 FIT) -->
+    <!-- DASHBOARD WIDESCREEN (1920x1080 FIT) -->
     <div class="dashboard-main">
         
-        <!-- MASTER PANEL 1: KONDISI LAPANGAN REAL-TIME (KIRI) -->
+        <!-- PANEL UTAMA 1: KONDISI LAPANGAN TERKINI (KIRI) -->
         <section class="master-panel panel-realtime">
             <div class="panel-header-bar header-bar-realtime">
                 <div class="panel-header-title">
                     <span class="dot-status dot-green"></span>
-                    <span>Kondisi Lapangan Real-Time</span>
+                    <span>Kondisi Lapangan Terkini</span>
                 </div>
-                <span class="panel-badge-tag tag-realtime">Live Telemetri &bull; Siklus Aktif</span>
+                <span class="panel-badge-tag tag-realtime">Telemetri Langsung &bull; Siklus Aktif</span>
             </div>
 
             <div class="panel-content">
@@ -823,17 +864,17 @@ class AnalyticsServer:
                         <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Status Operasional Mesin</span>
                         <div class="status-pill pill-standby" id="statusPill">
                             <span class="dot-status dot-amber" id="statusDot"></span>
-                            <span id="statusTitle">STANDBY</span>
+                            <span id="statusTitle">SIAGA</span>
                         </div>
                     </div>
 
                     <div class="meta-grid">
                         <div class="meta-cell">
-                            <span class="meta-cell-label">Work Order Aktif</span>
+                            <span class="meta-cell-label">Surat Perintah Kerja (SPK)</span>
                             <span class="meta-cell-val" id="val_wo">-</span>
                         </div>
                         <div class="meta-cell">
-                            <span class="meta-cell-label">Kode SKU / Produk</span>
+                            <span class="meta-cell-label">Kode Produk (SKU)</span>
                             <span class="meta-cell-val" id="val_sku">-</span>
                         </div>
                         <div class="meta-cell">
@@ -852,38 +893,38 @@ class AnalyticsServer:
 
                     <div class="hw-status-row">
                         <div class="hw-item">
-                            <span>Printer:</span>
-                            <span id="hw_printer_text" class="hw-val-offline">Offline</span>
+                            <span>Kepala Cetak:</span>
+                            <span id="hw_printer_text" class="hw-val-offline">Terputus</span>
                         </div>
                         <span>&bull;</span>
                         <div class="hw-item">
-                            <span>Scanner Sisi A:</span>
-                            <span id="hw_s1_text" class="hw-val-offline">Offline</span>
+                            <span>Pemindai Sisi A:</span>
+                            <span id="hw_s1_text" class="hw-val-offline">Terputus</span>
                         </div>
                         <span>&bull;</span>
                         <div class="hw-item">
-                            <span>Scanner Sisi B:</span>
-                            <span id="hw_s2_text" class="hw-val-offline">Offline</span>
+                            <span>Pemindai Sisi B:</span>
+                            <span id="hw_s2_text" class="hw-val-offline">Terputus</span>
                         </div>
                         <span>&bull;</span>
                         <div class="hw-item">
                             <span>Modbus I/O:</span>
-                            <span id="hw_modbus_text" class="hw-val-offline">Standby</span>
+                            <span id="hw_modbus_text" class="hw-val-offline">Siaga</span>
                         </div>
                         <span>&bull;</span>
                         <div class="hw-item">
-                            <span>API Sistem:</span>
+                            <span>API Sistem Utama:</span>
                             <span id="hw_api_text" class="hw-val-offline">Siap</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Row 2: Card Progres Batch & Card TOTAL OK/NG -->
+                <!-- Row 2: Card Kemajuan Batch & Card TOTAL LOLOS/AFKIR -->
                 <div class="hmi-cards-row-top">
-                    <!-- Progres Batch -->
+                    <!-- Kemajuan Batch -->
                     <div class="hmi-box-clean">
                         <div class="hmi-header-sm">
-                            <span>Progres Batch</span>
+                            <span>Kemajuan Batch</span>
                         </div>
                         <div class="gauge-layout">
                             <div class="gauge-svg-wrap">
@@ -892,7 +933,7 @@ class AnalyticsServer:
                                     <path id="gaugePath" d="M 20 85 A 70 70 0 0 1 160 85" fill="none" stroke="#0284c7" stroke-width="15" stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="220" style="transition: stroke-dashoffset 0.4s ease;"/>
                                 </svg>
                                 <div class="gauge-percent-text" id="gaugePct">0%</div>
-                                <span class="gauge-subtext">PROGRESS</span>
+                                <span class="gauge-subtext">KEMAJUAN</span>
                             </div>
 
                             <div class="gauge-info">
@@ -907,48 +948,48 @@ class AnalyticsServer:
                         </div>
                     </div>
 
-                    <!-- TOTAL OK & TOTAL NG -->
+                    <!-- TOTAL LOLOS & TOTAL AFKIR -->
                     <div class="hmi-box-clean">
                         <div class="ok-ng-grid">
                             <div class="counter-card counter-card-ok">
-                                <div class="counter-card-title">TOTAL OK</div>
+                                <div class="counter-card-title">TOTAL LOLOS</div>
                                 <div class="counter-card-num" id="countOk">0</div>
                             </div>
                             <div class="counter-card counter-card-ng">
-                                <div class="counter-card-title">TOTAL NG</div>
+                                <div class="counter-card-title">TOTAL AFKIR</div>
                                 <div class="counter-card-num" id="countNg">0</div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Row 3: Card Antrean Konveyor In-Transit -->
+                <!-- Row 3: Card Antrean Konveyor -->
                 <div class="hmi-box-clean">
                     <div class="hmi-header-sm">
                         <span>Antrean Konveyor</span>
-                        <span class="badge-transit-clean" id="badgeTransit">In Transit: 0 Box</span>
+                        <span class="badge-transit-clean" id="badgeTransit">Dalam Lintasan: 0 Kardus</span>
                     </div>
 
                     <div class="conveyor-diagram">
                         <div class="conveyor-track-line"></div>
                         <div class="conveyor-point">
                             <div class="node-circle-clean" id="nodeHeadPrint"></div>
-                            <span class="node-name">Head Print</span>
+                            <span class="node-name">Kepala Cetak</span>
                         </div>
                         <div class="conveyor-point">
                             <div class="node-circle-clean" id="nodeScanner"></div>
-                            <span class="node-name">Dual Scanner</span>
+                            <span class="node-name">Pemindai Ganda</span>
                         </div>
                         <div class="conveyor-point">
                             <div class="node-circle-clean" id="nodePusher"></div>
-                            <span class="node-name">Pusher (DO0)</span>
+                            <span class="node-name">Pendorong (DO0)</span>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- MASTER PANEL 2: REKAPITULASI PRODUKSI HISTORIS (KANAN) -->
+        <!-- PANEL UTAMA 2: REKAPITULASI PRODUKSI TERKUMPUL (KANAN) -->
         <section class="master-panel panel-history">
             <div class="panel-header-bar header-bar-history">
                 <div class="panel-header-title">
@@ -960,7 +1001,7 @@ class AnalyticsServer:
                     </svg>
                     <span>Rekapitulasi Produksi Terkumpul</span>
                 </div>
-                <span class="panel-badge-tag tag-history">Database &bull; 7 Hari Terakhir</span>
+                <span class="panel-badge-tag tag-history">Basis Data &bull; 7 Hari Terakhir</span>
             </div>
 
             <div class="panel-content">
@@ -971,7 +1012,7 @@ class AnalyticsServer:
                         <div id="total_volume" class="kpi-val" style="color: #0284c7;">-</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Rata-Rata NG Level</div>
+                        <div class="kpi-label">Rata-Rata Tingkat Afkir</div>
                         <div id="avg_ng" class="kpi-val" style="color: #dc2626;">-</div>
                     </div>
                     <div class="kpi-card">
@@ -980,7 +1021,7 @@ class AnalyticsServer:
                     </div>
                 </div>
 
-                <!-- 2 Charts Berdampingan -->
+                <!-- 2 Grafik Berdampingan -->
                 <div class="charts-row">
                     <div class="chart-box-clean">
                         <div class="chart-title-sm">Tren Produksi Harian (7 Hari Terakhir)</div>
@@ -989,18 +1030,28 @@ class AnalyticsServer:
                         </div>
                     </div>
                     <div class="chart-box-clean">
-                        <div class="chart-title-sm">Distribusi 5 SKU Teratas</div>
+                        <div class="chart-title-sm">Distribusi 5 Produk Teratas</div>
                         <div class="chart-canvas-wrap">
                             <canvas id="chartPie"></canvas>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tabel Riwayat Batch Selesai -->
+                <!-- Tabel Riwayat Batch Selesai dengan Tombol Ekspor CSV -->
                 <div class="table-box-clean">
                     <div class="table-header-sm">
                         <span>Riwayat Batch Produksi Terkini</span>
-                        <span id="record_count" style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">-</span>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <a href="/api/v1/export-raw-csv" class="btn-download-csv" download="riwayat_produksi_mentah.csv" title="Unduh seluruh data riwayat dalam format CSV">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                <span>Unduh Data Mentah (CSV)</span>
+                            </a>
+                            <span id="record_count" style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">-</span>
+                        </div>
                     </div>
                     <div class="table-wrap">
                         <table>
@@ -1010,8 +1061,8 @@ class AnalyticsServer:
                                     <th>Durasi</th>
                                     <th>File Sumber</th>
                                     <th>Total Data</th>
-                                    <th>Total Print</th>
-                                    <th>NG Level</th>
+                                    <th>Total Cetak</th>
+                                    <th>Tingkat Afkir</th>
                                 </tr>
                             </thead>
                             <tbody id="table_body">
@@ -1026,14 +1077,14 @@ class AnalyticsServer:
     </div>
 
     <div class="footer-note">
-        Omega MX Industrial Batch Printing & QC System v2.0 | Management Room View (1080p Optimized)
+        PT Smartek Sistem Inovasi &copy; 2026 | Sistem Percetakan Batch & Kontrol Mutu Omega MX v2.0 | Tampilan Ruang Manajemen
     </div>
 
     <script>
         let lineChartInstance = null;
         let pieChartInstance = null;
 
-        // Fullscreen Toggle
+        // Beralih Layar Penuh
         function toggleFullScreen() {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => {
@@ -1057,19 +1108,19 @@ class AnalyticsServer:
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 1. LIVE POLLING STATUS LAPANGAN (Setiap 1.5 detik)
+        // 1. POLLING STATUS LANGSUNG DARI LAPANGAN (Setiap 1.5 detik)
         async function pollLiveStatus() {
             try {
                 const res = await fetch('/api/v1/status');
                 if (!res.ok) throw new Error("HTTP " + res.status);
                 const s = await res.json();
 
-                // Live Badge
+                // Indikator Langsung
                 document.getElementById('badgeLive').className = 'badge-live';
                 document.getElementById('dotLive').className = 'dot-status dot-green';
-                document.getElementById('textLive').innerText = 'LIVE';
+                document.getElementById('textLive').innerText = 'LANGSUNG';
 
-                // Status Banner Logic (Simple, Clean, No AI text)
+                // Status Mesin (Bahasa Indonesia Baku)
                 const rawStatus = (s.system_status || 'READY').toUpperCase();
                 const pill = document.getElementById('statusPill');
                 const pDot = document.getElementById('statusDot');
@@ -1078,47 +1129,65 @@ class AnalyticsServer:
                 if (rawStatus === 'RUNNING') {
                     pill.className = 'status-pill pill-running';
                     pDot.className = 'dot-status dot-green';
-                    pTitle.innerText = 'RUNNING';
+                    pTitle.innerText = 'BERJALAN';
                 } else if (rawStatus === 'PAUSED') {
                     pill.className = 'status-pill pill-paused';
                     pDot.className = 'dot-status dot-amber';
-                    pTitle.innerText = 'PAUSED';
+                    pTitle.innerText = 'DIJEDA';
                 } else if (rawStatus === 'STOPPED' || rawStatus === 'ALARM') {
                     pill.className = 'status-pill pill-stopped';
                     pDot.className = 'dot-status dot-red';
-                    pTitle.innerText = 'STOPPED';
+                    pTitle.innerText = 'BERHENTI';
                 } else {
                     pill.className = 'status-pill pill-standby';
                     pDot.className = 'dot-status dot-amber';
-                    pTitle.innerText = 'STANDBY';
+                    pTitle.innerText = 'SIAGA';
                 }
 
-                // Metadata Batch
+                // Metadata Batch Aktif
                 document.getElementById('val_wo').innerText = s.current_work_order || '-';
                 document.getElementById('val_sku').innerText = s.current_sku || '-';
                 document.getElementById('val_file').innerText = s.current_file || '-';
                 document.getElementById('val_operator').innerText = s.operator || 'admin';
                 document.getElementById('val_start').innerText = s.batch_start_time || '-';
 
-                // Hardware Status Line
+                // Status Koneksi Perangkat
                 const hw = s.hardware || {};
                 function setHw(idText, isOnline) {
                     const txt = document.getElementById(idText);
                     if (isOnline) {
                         txt.className = 'hw-val-online';
-                        txt.innerText = 'Online';
+                        txt.innerText = 'Terhubung';
                     } else {
                         txt.className = 'hw-val-offline';
-                        txt.innerText = 'Offline';
+                        txt.innerText = 'Terputus';
                     }
                 }
                 setHw('hw_printer_text', hw.printer_online);
                 setHw('hw_s1_text', hw.scanner1_online);
                 setHw('hw_s2_text', hw.scanner2_online);
-                setHw('hw_modbus_text', hw.modbus_online);
-                setHw('hw_api_text', hw.upstream_api_online);
+                
+                // Modbus I/O
+                const txtM = document.getElementById('hw_modbus_text');
+                if (hw.modbus_online) {
+                    txtM.className = 'hw-val-online';
+                    txtM.innerText = 'Aktif';
+                } else {
+                    txtM.className = 'hw-val-offline';
+                    txtM.innerText = 'Siaga';
+                }
 
-                // Progres Batch Card
+                // API Sistem Utama
+                const txtApi = document.getElementById('hw_api_text');
+                if (hw.upstream_api_online) {
+                    txtApi.className = 'hw-val-online';
+                    txtApi.innerText = 'Terhubung';
+                } else {
+                    txtApi.className = 'hw-val-offline';
+                    txtApi.innerText = 'Siap';
+                }
+
+                // Kartu Kemajuan Batch
                 const p = s.progress || {};
                 const target = p.total_target || 0;
                 const judged = p.judged || 0;
@@ -1142,15 +1211,15 @@ class AnalyticsServer:
                     gPath.setAttribute('stroke', '#94a3b8');
                 }
 
-                // Counters OK & NG
+                // Total Lolos & Afkir
                 const okCnt = p.count_ok || 0;
                 const ngCnt = p.count_ng || 0;
                 document.getElementById('countOk').innerText = okCnt;
                 document.getElementById('countNg').innerText = ngCnt;
 
-                // Antrean Konveyor In-Transit
+                // Antrean Konveyor Dalam Lintasan
                 const inTransit = p.in_transit || 0;
-                document.getElementById('badgeTransit').innerText = `In Transit: ${inTransit} Box`;
+                document.getElementById('badgeTransit').innerText = `Dalam Lintasan: ${inTransit} Kardus`;
 
                 const nodeHp = document.getElementById('nodeHeadPrint');
                 const nodeScan = document.getElementById('nodeScanner');
@@ -1167,19 +1236,19 @@ class AnalyticsServer:
                 }
 
             } catch (err) {
-                // HMI Offline
+                // Saat HMI Terputus
                 document.getElementById('badgeLive').className = 'badge-live';
                 document.getElementById('dotLive').className = 'dot-status dot-gray';
-                document.getElementById('textLive').innerText = 'OFFLINE';
+                document.getElementById('textLive').innerText = 'TERPUTUS';
 
                 const pill = document.getElementById('statusPill');
                 pill.className = 'status-pill pill-offline';
                 document.getElementById('statusDot').className = 'dot-status dot-gray';
-                document.getElementById('statusTitle').innerText = 'OFFLINE';
+                document.getElementById('statusTitle').innerText = 'TERPUTUS';
             }
         }
 
-        // 2. LOAD HISTORICAL ANALYTICS DATA (Setiap 10 detik)
+        // 2. MEMUAT DATA REKAPITULASI HISTORIS (Setiap 10 detik)
         async function loadHistoryData() {
             try {
                 const res = await fetch('/api/history');
@@ -1202,7 +1271,7 @@ class AnalyticsServer:
                 document.getElementById('total_batch').innerText = data.length.toLocaleString();
                 document.getElementById('record_count').innerText = data.length + " Batch";
 
-                // Line Chart
+                // Grafik Garis Tren Harian
                 const dates = [...new Set(data.map(i => (i.Waktu_Selesai || "").split(' ')[0]).filter(Boolean))].slice(-7);
                 const volData = dates.map(d => data.filter(i => (i.Waktu_Selesai || "").startsWith(d)).reduce((s, i) => s + (parseInt(i.Total_Print) || 0), 0));
 
@@ -1234,10 +1303,10 @@ class AnalyticsServer:
                     }
                 });
 
-                // Doughnut Chart
+                // Grafik Donat SKU
                 const skus = {};
                 data.forEach(i => {
-                    const src = i.Source || "Unknown";
+                    const src = i.Source || "Lainnya";
                     skus[src] = (skus[src] || 0) + (parseInt(i.Total_Print) || 0);
                 });
                 const topSkus = Object.entries(skus).sort((a,b) => b[1]-a[1]).slice(0, 5);
@@ -1282,12 +1351,13 @@ class AnalyticsServer:
                     });
                 }
 
-                // Table Data (Terbaru)
+                // Tabel Data Riwayat Terkini
                 const recent = [...data].reverse().slice(0, 8);
                 const rows = recent.map(r => {
-                    const ngBadge = parseInt(r.NG_Level) > 0 
-                        ? `<span class="tag-ng-clean">${escapeHtml(r.NG_Level)} NG</span>` 
-                        : `<span class="tag-ok-clean">0 NG</span>`;
+                    const ngVal = parseInt(r.NG_Level) || 0;
+                    const ngBadge = ngVal > 0 
+                        ? `<span class="tag-ng-clean">${escapeHtml(r.NG_Level)} Afkir</span>` 
+                        : `<span class="tag-ok-clean">0 Afkir</span>`;
                     return `<tr>
                         <td>${escapeHtml(r.Waktu_Selesai)}</td>
                         <td>${escapeHtml(r.Durasi)}</td>
@@ -1300,11 +1370,11 @@ class AnalyticsServer:
                 document.getElementById('table_body').innerHTML = rows;
 
             } catch (err) {
-                console.error("Gagal load history analytics:", err);
+                console.error("Gagal memuat data riwayat:", err);
             }
         }
 
-        // Inisialisasi & Polling Interval
+        // Inisialisasi & Interval Polling
         pollLiveStatus();
         setInterval(pollLiveStatus, 1500);
 
