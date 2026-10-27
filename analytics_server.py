@@ -92,19 +92,20 @@ class AnalyticsServer:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Omega MX - Management Room Production Analytics</title>
+    <title>Omega MX - Management Room Production Analytics (1080p Widescreen)</title>
     <script src="/assets/chart.umd.js"></script>
     <style>
         :root {
-            --bg: #f4f6f8;
+            --bg: #eef2f6;
             --surface: #ffffff;
             --border: #dcdfe4;
-            --border-light: #eef1f5;
+            --border-light: #f1f5f9;
             --text-title: #0f172a;
             --text-body: #334155;
             --text-muted: #64748b;
             --primary: #1e3a8a;
-            --accent-blue: #0284c7;
+            --accent-realtime: #0284c7;
+            --accent-history: #475569;
             --ok-color: #16a34a;
             --ok-bg: #f0fdf4;
             --ok-border: #bbf7d0;
@@ -126,18 +127,21 @@ class AnalyticsServer:
         body {
             background-color: var(--bg);
             color: var(--text-body);
-            padding-bottom: 40px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         /* Top Navbar */
         .navbar {
             background-color: #0f172a;
             color: #ffffff;
-            padding: 12px 24px;
+            padding: 8px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid #1e293b;
+            flex-shrink: 0;
         }
 
         .nav-brand {
@@ -147,8 +151,8 @@ class AnalyticsServer:
         }
 
         .brand-icon {
-            width: 28px;
-            height: 28px;
+            width: 26px;
+            height: 26px;
             background: #2563eb;
             border-radius: 4px;
             display: flex;
@@ -158,7 +162,7 @@ class AnalyticsServer:
         }
 
         .nav-brand h1 {
-            font-size: 1.05rem;
+            font-size: 0.98rem;
             font-weight: 700;
             letter-spacing: 0.4px;
             color: #ffffff;
@@ -167,9 +171,9 @@ class AnalyticsServer:
         .badge-dept {
             background: #1e293b;
             color: #94a3b8;
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 700;
-            padding: 2px 8px;
+            padding: 2px 7px;
             border-radius: 4px;
             border: 1px solid #334155;
             text-transform: uppercase;
@@ -179,11 +183,31 @@ class AnalyticsServer:
         .nav-right {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
+        }
+
+        .btn-fullscreen {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            padding: 4px 9px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-fullscreen:hover {
+            background: #334155;
+            color: #ffffff;
         }
 
         .clock-display {
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             color: #cbd5e1;
             font-family: 'Consolas', monospace;
             background: #1e293b;
@@ -218,116 +242,166 @@ class AnalyticsServer:
         .dot-amber { background-color: #f59e0b; }
         .dot-red   { background-color: #ef4444; }
 
-        .container {
-            max-width: 1240px;
-            margin: 20px auto;
-            padding: 0 16px;
+        /* Widescreen 1920x1080 Dual Master Panels Layout */
+        .dashboard-main {
+            width: 100%;
+            max-width: 1920px;
+            margin: 0 auto;
+            padding: 12px 18px;
+            display: grid;
+            grid-template-columns: 48fr 52fr;
+            gap: 16px;
+            align-items: stretch;
+            flex: 1;
         }
 
-        /* Clean Section Title */
-        .section-label {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        @media (max-width: 1200px) {
+            .dashboard-main {
+                grid-template-columns: 1fr;
+            }
         }
 
-        /* 1. KONDISI REAL-TIME MESIN (CLEAN & SIMPLE) */
-        .status-box {
+        /* MASTER PANEL FRAMEWORK */
+        .master-panel {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 16px 20px;
-            margin-bottom: 18px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
         }
 
-        .status-header-row {
+        .panel-realtime {
+            border-top: 4px solid var(--accent-realtime);
+        }
+
+        .panel-history {
+            border-top: 4px solid var(--accent-history);
+        }
+
+        /* Master Panel Header */
+        .panel-header-bar {
+            padding: 10px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border-light);
-            margin-bottom: 14px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .status-header-title {
-            font-size: 0.82rem;
-            font-weight: 700;
+        .header-bar-realtime {
+            background-color: #f0f9ff;
+        }
+
+        .header-bar-history {
+            background-color: #f8fafc;
+        }
+
+        .panel-header-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.88rem;
+            font-weight: 800;
+            letter-spacing: 0.4px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-muted);
+        }
+
+        .header-bar-realtime .panel-header-title {
+            color: #0369a1;
+        }
+
+        .header-bar-history .panel-header-title {
+            color: #334155;
+        }
+
+        .panel-badge-tag {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .tag-realtime {
+            background: #e0f2fe;
+            color: #0284c7;
+            border: 1px solid #bae6fd;
+        }
+
+        .tag-history {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        .panel-content {
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1;
+        }
+
+        /* 1. KONTEN PANEL KIRI (REAL-TIME LAPANGAN) */
+        .status-box-clean {
+            background: #fafbfc;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px 14px;
+        }
+
+        .status-top-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-light);
+            margin-bottom: 10px;
         }
 
         .status-pill {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 4px 14px;
-            border-radius: 4px;
-            font-size: 0.82rem;
-            font-weight: 700;
+            gap: 6px;
+            padding: 3px 12px;
+            border-radius: 3px;
+            font-size: 0.78rem;
+            font-weight: 800;
             letter-spacing: 0.5px;
             border: 1px solid transparent;
         }
 
-        .pill-running {
-            background-color: #f0fdf4;
-            color: #166534;
-            border-color: #bbf7d0;
-        }
-        .pill-standby {
-            background-color: #f1f5f9;
-            color: #334155;
-            border-color: #cbd5e1;
-        }
-        .pill-paused {
-            background-color: #fefce8;
-            color: #854d0e;
-            border-color: #fef08a;
-        }
-        .pill-stopped {
-            background-color: #fef2f2;
-            color: #991b1b;
-            border-color: #fecaca;
-        }
-        .pill-offline {
-            background-color: #f8fafc;
-            color: #64748b;
-            border-color: #e2e8f0;
-        }
+        .pill-running { background-color: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+        .pill-standby { background-color: #f1f5f9; color: #334155; border-color: #cbd5e1; }
+        .pill-paused  { background-color: #fefce8; color: #854d0e; border-color: #fef08a; }
+        .pill-stopped { background-color: #fef2f2; color: #991b1b; border-color: #fecaca; }
+        .pill-offline { background-color: #f8fafc; color: #64748b; border-color: #e2e8f0; }
 
         .meta-grid {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 16px;
-            margin-bottom: 14px;
-        }
-
-        @media (max-width: 900px) {
-            .meta-grid { grid-template-columns: repeat(2, 1fr); }
+            gap: 10px;
+            margin-bottom: 10px;
         }
 
         .meta-cell {
             display: flex;
             flex-direction: column;
-            gap: 3px;
+            gap: 2px;
         }
 
         .meta-cell-label {
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.3px;
         }
 
         .meta-cell-val {
-            font-size: 0.9rem;
+            font-size: 0.82rem;
             font-weight: 700;
             color: var(--text-title);
             white-space: nowrap;
@@ -336,75 +410,64 @@ class AnalyticsServer:
         }
 
         .hw-status-row {
-            padding-top: 10px;
+            padding-top: 8px;
             border-top: 1px solid var(--border-light);
             display: flex;
             flex-wrap: wrap;
-            gap: 18px;
-            font-size: 0.75rem;
+            gap: 14px;
+            font-size: 0.72rem;
             color: var(--text-muted);
         }
 
         .hw-item {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
         }
 
-        .hw-val-online {
-            font-weight: 700;
-            color: #166534;
-        }
-        .hw-val-offline {
-            font-weight: 700;
-            color: #64748b;
-        }
+        .hw-val-online { font-weight: 700; color: #166534; }
+        .hw-val-offline { font-weight: 700; color: #64748b; }
 
-        /* 2. THREE HMI CARDS (IDENTICAL TO HMI SCREENSHOT) */
-        .hmi-cards-grid {
+        /* HMI CARDS (Di dalam Panel Kiri) */
+        .hmi-cards-row-top {
             display: grid;
-            grid-template-columns: 1.2fr 1fr 1.3fr;
-            gap: 16px;
-            margin-bottom: 20px;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 12px;
         }
 
-        @media (max-width: 950px) {
-            .hmi-cards-grid { grid-template-columns: 1fr; }
-        }
-
-        .hmi-box {
-            background: var(--surface);
+        .hmi-box-clean {
+            background: #ffffff;
             border: 1px solid var(--border);
             border-radius: 4px;
-            padding: 16px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
         }
 
-        .hmi-header {
-            font-size: 0.88rem;
+        .hmi-header-sm {
+            font-size: 0.8rem;
             font-weight: 700;
             color: var(--text-title);
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        /* Card 1: Progres Batch */
+        /* Gauge */
         .gauge-layout {
             display: flex;
             align-items: center;
             justify-content: space-around;
-            padding: 4px 0 8px 0;
-            gap: 12px;
+            padding: 2px 0 6px 0;
+            gap: 10px;
         }
 
         .gauge-svg-wrap {
             position: relative;
-            width: 160px;
-            height: 85px;
+            width: 150px;
+            height: 80px;
             overflow: hidden;
             flex-shrink: 0;
         }
@@ -415,13 +478,13 @@ class AnalyticsServer:
             left: 0;
             right: 0;
             text-align: center;
-            font-size: 1.4rem;
+            font-size: 1.35rem;
             font-weight: 800;
             color: var(--text-title);
         }
 
         .gauge-subtext {
-            font-size: 0.65rem;
+            font-size: 0.62rem;
             font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
@@ -438,37 +501,37 @@ class AnalyticsServer:
         }
 
         .gauge-counts {
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             font-weight: 800;
             color: var(--text-title);
             line-height: 1.1;
         }
 
         .gauge-label {
-            font-size: 0.78rem;
+            font-size: 0.75rem;
             color: var(--text-muted);
             font-weight: 500;
-            margin-top: 3px;
+            margin-top: 2px;
         }
 
         .gauge-sisa {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 800;
             color: #0e7490;
-            margin-top: 6px;
+            margin-top: 5px;
         }
 
-        /* Card 2: Counters OK & NG */
+        /* OK / NG */
         .ok-ng-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            gap: 8px;
             height: 100%;
         }
 
         .counter-card {
             border-radius: 4px;
-            padding: 12px 8px;
+            padding: 10px 6px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -487,18 +550,18 @@ class AnalyticsServer:
         }
 
         .counter-card-title {
-            font-size: 0.78rem;
+            font-size: 0.74rem;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.4px;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
         }
 
         .counter-card-ok .counter-card-title { color: #166534; }
         .counter-card-ng .counter-card-title { color: #991b1b; }
 
         .counter-card-num {
-            font-size: 2.3rem;
+            font-size: 2.1rem;
             font-weight: 800;
             line-height: 1;
         }
@@ -506,14 +569,14 @@ class AnalyticsServer:
         .counter-card-ok .counter-card-num { color: #16a34a; }
         .counter-card-ng .counter-card-num { color: #dc2626; }
 
-        /* Card 3: Antrean Konveyor */
+        /* Konveyor (Row Bawah Panel Kiri) */
         .badge-transit-clean {
             background-color: var(--transit-bg);
             border: 1px solid var(--transit-border);
             color: var(--transit-text);
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             font-weight: 800;
-            padding: 3px 8px;
+            padding: 2px 7px;
             border-radius: 3px;
         }
 
@@ -522,8 +585,8 @@ class AnalyticsServer:
             background: #fafbfc;
             border: 1px solid var(--border-light);
             border-radius: 4px;
-            padding: 22px 14px;
-            margin-top: 6px;
+            padding: 18px 14px;
+            margin-top: 4px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -544,12 +607,12 @@ class AnalyticsServer:
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .node-circle-clean {
-            width: 18px;
-            height: 18px;
+            width: 17px;
+            height: 17px;
             background: #ffffff;
             border: 3px solid #64748b;
             border-radius: 50%;
@@ -562,84 +625,101 @@ class AnalyticsServer:
         }
 
         .node-name {
-            font-size: 0.72rem;
+            font-size: 0.7rem;
             font-weight: 700;
             color: #475569;
             white-space: nowrap;
         }
 
-        /* 3. REKAPITULASI & CHARTS */
-        .rekap-grid {
+        /* 2. KONTEN PANEL KANAN (REKAPITULASI HISTORIS) */
+        .kpi-row {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-bottom: 18px;
+            gap: 10px;
         }
 
-        @media (max-width: 800px) {
-            .rekap-grid { grid-template-columns: 1fr; }
-        }
-
-        .rekap-card {
-            background: var(--surface);
+        .kpi-card {
+            background: #fafbfc;
             border: 1px solid var(--border);
             border-radius: 4px;
-            padding: 18px 20px;
+            padding: 10px 12px;
         }
 
-        .rekap-label {
-            font-size: 0.75rem;
+        .kpi-label {
+            font-size: 0.68rem;
             font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 0.4px;
-            margin-bottom: 6px;
+            letter-spacing: 0.3px;
+            margin-bottom: 4px;
         }
 
-        .rekap-val {
-            font-size: 2rem;
+        .kpi-val {
+            font-size: 1.65rem;
             font-weight: 800;
             line-height: 1;
         }
 
-        .charts-container {
+        .charts-row {
             display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 16px;
-            margin-bottom: 18px;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 10px;
         }
 
-        @media (max-width: 900px) {
-            .charts-container { grid-template-columns: 1fr; }
-        }
-
-        .chart-box {
-            background: var(--surface);
+        .chart-box-clean {
+            background: #ffffff;
             border: 1px solid var(--border);
             border-radius: 4px;
-            padding: 18px 20px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
         }
 
-        .chart-box-title {
-            font-size: 0.85rem;
+        .chart-title-sm {
+            font-size: 0.76rem;
             font-weight: 700;
             color: var(--text-title);
-            margin-bottom: 14px;
+            margin-bottom: 8px;
         }
 
-        /* 4. TABLE RIWAYAT */
-        .table-box {
-            background: var(--surface);
+        .chart-canvas-wrap {
+            position: relative;
+            flex: 1;
+            min-height: 130px;
+            max-height: 150px;
+        }
+
+        /* Table Box */
+        .table-box-clean {
+            background: #ffffff;
             border: 1px solid var(--border);
             border-radius: 4px;
-            padding: 18px 20px;
+            padding: 10px 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .table-header-sm {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: var(--text-title);
+            margin-bottom: 6px;
+        }
+
+        .table-wrap {
+            overflow-y: auto;
+            max-height: 180px;
+            flex: 1;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.85rem;
-            margin-top: 8px;
+            font-size: 0.78rem;
         }
 
         th {
@@ -647,15 +727,18 @@ class AnalyticsServer:
             color: #475569;
             font-weight: 700;
             text-align: left;
-            padding: 10px 12px;
+            padding: 7px 10px;
             border-bottom: 2px solid var(--border);
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             text-transform: uppercase;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.3px;
+            position: sticky;
+            top: 0;
+            z-index: 5;
         }
 
         td {
-            padding: 10px 12px;
+            padding: 6px 10px;
             border-bottom: 1px solid var(--border-light);
             color: var(--text-title);
         }
@@ -665,26 +748,29 @@ class AnalyticsServer:
         .tag-ng-clean {
             background: #fee2e2;
             color: #b91c1c;
-            padding: 2px 6px;
-            border-radius: 3px;
+            padding: 1px 5px;
+            border-radius: 2px;
             font-weight: 700;
-            font-size: 0.72rem;
+            font-size: 0.68rem;
         }
 
         .tag-ok-clean {
             background: #dcfce7;
             color: #15803d;
-            padding: 2px 6px;
-            border-radius: 3px;
+            padding: 1px 5px;
+            border-radius: 2px;
             font-weight: 700;
-            font-size: 0.72rem;
+            font-size: 0.68rem;
         }
 
         .footer-note {
             text-align: center;
-            margin-top: 30px;
-            font-size: 0.75rem;
+            padding: 6px 0;
+            font-size: 0.7rem;
             color: var(--text-muted);
+            border-top: 1px solid var(--border);
+            background: #ffffff;
+            flex-shrink: 0;
         }
     </style>
 </head>
@@ -693,7 +779,7 @@ class AnalyticsServer:
     <nav class="navbar">
         <div class="nav-brand">
             <div class="brand-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
                     <line x1="8" y1="21" x2="16" y2="21"></line>
                     <line x1="12" y1="17" x2="12" y2="21"></line>
@@ -703,6 +789,12 @@ class AnalyticsServer:
             <span class="badge-dept">MANAGEMENT ROOM</span>
         </div>
         <div class="nav-right">
+            <button class="btn-fullscreen" onclick="toggleFullScreen()" title="Tampilkan Layar Penuh">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                </svg>
+                Layar Penuh (F11)
+            </button>
             <span class="clock-display" id="clockText">--:--:-- WIB</span>
             <span class="badge-live" id="badgeLive">
                 <span class="dot-status dot-green" id="dotLive"></span>
@@ -711,199 +803,248 @@ class AnalyticsServer:
         </div>
     </nav>
 
-    <div class="container">
-        <!-- 1. KONDISI REAL-TIME LAPANGAN -->
-        <div class="section-label">Status Real-Time Kondisi Lapangan</div>
-        <div class="status-box">
-            <div class="status-header-row">
-                <span class="status-header-title">Status Operasional Mesin</span>
-                <div class="status-pill pill-standby" id="statusPill">
-                    <span class="dot-status dot-amber" id="statusDot"></span>
-                    <span id="statusTitle">STANDBY</span>
+    <!-- WIDESCREEN DASHBOARD (1920x1080 FIT) -->
+    <div class="dashboard-main">
+        
+        <!-- MASTER PANEL 1: KONDISI LAPANGAN REAL-TIME (KIRI) -->
+        <section class="master-panel panel-realtime">
+            <div class="panel-header-bar header-bar-realtime">
+                <div class="panel-header-title">
+                    <span class="dot-status dot-green"></span>
+                    <span>Kondisi Lapangan Real-Time</span>
                 </div>
+                <span class="panel-badge-tag tag-realtime">Live Telemetri &bull; Siklus Aktif</span>
             </div>
 
-            <!-- Metadata Active Batch -->
-            <div class="meta-grid">
-                <div class="meta-cell">
-                    <span class="meta-cell-label">Work Order Aktif</span>
-                    <span class="meta-cell-val" id="val_wo">-</span>
-                </div>
-                <div class="meta-cell">
-                    <span class="meta-cell-label">Kode SKU / Produk</span>
-                    <span class="meta-cell-val" id="val_sku">-</span>
-                </div>
-                <div class="meta-cell">
-                    <span class="meta-cell-label">File / Sumber Data</span>
-                    <span class="meta-cell-val" id="val_file">-</span>
-                </div>
-                <div class="meta-cell">
-                    <span class="meta-cell-label">Operator Bertugas</span>
-                    <span class="meta-cell-val" id="val_operator">admin</span>
-                </div>
-                <div class="meta-cell">
-                    <span class="meta-cell-label">Waktu Mulai Batch</span>
-                    <span class="meta-cell-val" id="val_start">-</span>
-                </div>
-            </div>
-
-            <!-- Hardware Line -->
-            <div class="hw-status-row">
-                <div class="hw-item">
-                    <span>Printer:</span>
-                    <span id="hw_printer_text" class="hw-val-offline">Offline</span>
-                </div>
-                <span>&bull;</span>
-                <div class="hw-item">
-                    <span>Scanner Sisi A:</span>
-                    <span id="hw_s1_text" class="hw-val-offline">Offline</span>
-                </div>
-                <span>&bull;</span>
-                <div class="hw-item">
-                    <span>Scanner Sisi B:</span>
-                    <span id="hw_s2_text" class="hw-val-offline">Offline</span>
-                </div>
-                <span>&bull;</span>
-                <div class="hw-item">
-                    <span>Modbus I/O:</span>
-                    <span id="hw_modbus_text" class="hw-val-offline">Standby</span>
-                </div>
-                <span>&bull;</span>
-                <div class="hw-item">
-                    <span>API Sistem Utama:</span>
-                    <span id="hw_api_text" class="hw-val-offline">Siap</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- 2. TIGA CARD PERSIS SEPERTI DI HMI -->
-        <div class="hmi-cards-grid">
-            <!-- Card 1: Progres Batch -->
-            <div class="hmi-box">
-                <div class="hmi-header">
-                    <span>Progres Batch</span>
-                </div>
-                <div class="gauge-layout">
-                    <div class="gauge-svg-wrap">
-                        <svg width="160" height="85" viewBox="0 0 180 95">
-                            <path d="M 20 85 A 70 70 0 0 1 160 85" fill="none" stroke="#e2e8f0" stroke-width="15" stroke-linecap="round"/>
-                            <path id="gaugePath" d="M 20 85 A 70 70 0 0 1 160 85" fill="none" stroke="#0284c7" stroke-width="15" stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="220" style="transition: stroke-dashoffset 0.4s ease;"/>
-                        </svg>
-                        <div class="gauge-percent-text" id="gaugePct">0%</div>
-                        <span class="gauge-subtext">PROGRESS</span>
+            <div class="panel-content">
+                <!-- Status Operasional & Batch Aktif -->
+                <div class="status-box-clean">
+                    <div class="status-top-line">
+                        <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Status Operasional Mesin</span>
+                        <div class="status-pill pill-standby" id="statusPill">
+                            <span class="dot-status dot-amber" id="statusDot"></span>
+                            <span id="statusTitle">STANDBY</span>
+                        </div>
                     </div>
 
-                    <div class="gauge-info">
-                        <div class="gauge-counts">
-                            <span id="gaugeJudged">0</span> / <span id="gaugeTotal">0</span>
+                    <div class="meta-grid">
+                        <div class="meta-cell">
+                            <span class="meta-cell-label">Work Order Aktif</span>
+                            <span class="meta-cell-val" id="val_wo">-</span>
                         </div>
-                        <span class="gauge-label">Kardus Selesai</span>
-                        <div class="gauge-sisa">
-                            Sisa: <span id="gaugeSisa">0</span>
+                        <div class="meta-cell">
+                            <span class="meta-cell-label">Kode SKU / Produk</span>
+                            <span class="meta-cell-val" id="val_sku">-</span>
+                        </div>
+                        <div class="meta-cell">
+                            <span class="meta-cell-label">File Sumber Data</span>
+                            <span class="meta-cell-val" id="val_file">-</span>
+                        </div>
+                        <div class="meta-cell">
+                            <span class="meta-cell-label">Operator Bertugas</span>
+                            <span class="meta-cell-val" id="val_operator">admin</span>
+                        </div>
+                        <div class="meta-cell">
+                            <span class="meta-cell-label">Waktu Mulai Batch</span>
+                            <span class="meta-cell-val" id="val_start">-</span>
+                        </div>
+                    </div>
+
+                    <div class="hw-status-row">
+                        <div class="hw-item">
+                            <span>Printer:</span>
+                            <span id="hw_printer_text" class="hw-val-offline">Offline</span>
+                        </div>
+                        <span>&bull;</span>
+                        <div class="hw-item">
+                            <span>Scanner Sisi A:</span>
+                            <span id="hw_s1_text" class="hw-val-offline">Offline</span>
+                        </div>
+                        <span>&bull;</span>
+                        <div class="hw-item">
+                            <span>Scanner Sisi B:</span>
+                            <span id="hw_s2_text" class="hw-val-offline">Offline</span>
+                        </div>
+                        <span>&bull;</span>
+                        <div class="hw-item">
+                            <span>Modbus I/O:</span>
+                            <span id="hw_modbus_text" class="hw-val-offline">Standby</span>
+                        </div>
+                        <span>&bull;</span>
+                        <div class="hw-item">
+                            <span>API Sistem:</span>
+                            <span id="hw_api_text" class="hw-val-offline">Siap</span>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Card 2: TOTAL OK & TOTAL NG (Identik HMI) -->
-            <div class="hmi-box">
-                <div class="ok-ng-grid">
-                    <div class="counter-card counter-card-ok">
-                        <div class="counter-card-title">TOTAL OK</div>
-                        <div class="counter-card-num" id="countOk">0</div>
+                <!-- Row 2: Card Progres Batch & Card TOTAL OK/NG -->
+                <div class="hmi-cards-row-top">
+                    <!-- Progres Batch -->
+                    <div class="hmi-box-clean">
+                        <div class="hmi-header-sm">
+                            <span>Progres Batch</span>
+                        </div>
+                        <div class="gauge-layout">
+                            <div class="gauge-svg-wrap">
+                                <svg width="150" height="80" viewBox="0 0 180 95">
+                                    <path d="M 20 85 A 70 70 0 0 1 160 85" fill="none" stroke="#e2e8f0" stroke-width="15" stroke-linecap="round"/>
+                                    <path id="gaugePath" d="M 20 85 A 70 70 0 0 1 160 85" fill="none" stroke="#0284c7" stroke-width="15" stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="220" style="transition: stroke-dashoffset 0.4s ease;"/>
+                                </svg>
+                                <div class="gauge-percent-text" id="gaugePct">0%</div>
+                                <span class="gauge-subtext">PROGRESS</span>
+                            </div>
+
+                            <div class="gauge-info">
+                                <div class="gauge-counts">
+                                    <span id="gaugeJudged">0</span> / <span id="gaugeTotal">0</span>
+                                </div>
+                                <span class="gauge-label">Kardus Selesai</span>
+                                <div class="gauge-sisa">
+                                    Sisa: <span id="gaugeSisa">0</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="counter-card counter-card-ng">
-                        <div class="counter-card-title">TOTAL NG</div>
-                        <div class="counter-card-num" id="countNg">0</div>
+
+                    <!-- TOTAL OK & TOTAL NG -->
+                    <div class="hmi-box-clean">
+                        <div class="ok-ng-grid">
+                            <div class="counter-card counter-card-ok">
+                                <div class="counter-card-title">TOTAL OK</div>
+                                <div class="counter-card-num" id="countOk">0</div>
+                            </div>
+                            <div class="counter-card counter-card-ng">
+                                <div class="counter-card-title">TOTAL NG</div>
+                                <div class="counter-card-num" id="countNg">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Card Antrean Konveyor In-Transit -->
+                <div class="hmi-box-clean">
+                    <div class="hmi-header-sm">
+                        <span>Antrean Konveyor</span>
+                        <span class="badge-transit-clean" id="badgeTransit">In Transit: 0 Box</span>
+                    </div>
+
+                    <div class="conveyor-diagram">
+                        <div class="conveyor-track-line"></div>
+                        <div class="conveyor-point">
+                            <div class="node-circle-clean" id="nodeHeadPrint"></div>
+                            <span class="node-name">Head Print</span>
+                        </div>
+                        <div class="conveyor-point">
+                            <div class="node-circle-clean" id="nodeScanner"></div>
+                            <span class="node-name">Dual Scanner</span>
+                        </div>
+                        <div class="conveyor-point">
+                            <div class="node-circle-clean" id="nodePusher"></div>
+                            <span class="node-name">Pusher (DO0)</span>
+                        </div>
                     </div>
                 </div>
             </div>
+        </section>
 
-            <!-- Card 3: Antrean Konveyor (Identik HMI) -->
-            <div class="hmi-box">
-                <div class="hmi-header">
-                    <span>Antrean Konveyor</span>
-                    <span class="badge-transit-clean" id="badgeTransit">In Transit: 0 Box</span>
+        <!-- MASTER PANEL 2: REKAPITULASI PRODUKSI HISTORIS (KANAN) -->
+        <section class="master-panel panel-history">
+            <div class="panel-header-bar header-bar-history">
+                <div class="panel-header-title">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    <span>Rekapitulasi Produksi Terkumpul</span>
+                </div>
+                <span class="panel-badge-tag tag-history">Database &bull; 7 Hari Terakhir</span>
+            </div>
+
+            <div class="panel-content">
+                <!-- 3 KPI Kumulatif -->
+                <div class="kpi-row">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Total Volume Cetak</div>
+                        <div id="total_volume" class="kpi-val" style="color: #0284c7;">-</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Rata-Rata NG Level</div>
+                        <div id="avg_ng" class="kpi-val" style="color: #dc2626;">-</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Total Batch Selesai</div>
+                        <div id="total_batch" class="kpi-val" style="color: #16a34a;">-</div>
+                    </div>
                 </div>
 
-                <div class="conveyor-diagram">
-                    <div class="conveyor-track-line"></div>
-                    <div class="conveyor-point">
-                        <div class="node-circle-clean" id="nodeHeadPrint"></div>
-                        <span class="node-name">Head Print</span>
+                <!-- 2 Charts Berdampingan -->
+                <div class="charts-row">
+                    <div class="chart-box-clean">
+                        <div class="chart-title-sm">Tren Produksi Harian (7 Hari Terakhir)</div>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="chartLine"></canvas>
+                        </div>
                     </div>
-                    <div class="conveyor-point">
-                        <div class="node-circle-clean" id="nodeScanner"></div>
-                        <span class="node-name">Dual Scanner</span>
+                    <div class="chart-box-clean">
+                        <div class="chart-title-sm">Distribusi 5 SKU Teratas</div>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="chartPie"></canvas>
+                        </div>
                     </div>
-                    <div class="conveyor-point">
-                        <div class="node-circle-clean" id="nodePusher"></div>
-                        <span class="node-name">Pusher (DO0)</span>
+                </div>
+
+                <!-- Tabel Riwayat Batch Selesai -->
+                <div class="table-box-clean">
+                    <div class="table-header-sm">
+                        <span>Riwayat Batch Produksi Terkini</span>
+                        <span id="record_count" style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">-</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Waktu Selesai</th>
+                                    <th>Durasi</th>
+                                    <th>File Sumber</th>
+                                    <th>Total Data</th>
+                                    <th>Total Print</th>
+                                    <th>NG Level</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table_body">
+                                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 14px;">Memuat data riwayat...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- 3. REKAPITULASI PRODUKSI -->
-        <div class="section-label">Rekapitulasi Produksi Terkumpul</div>
-        <div class="rekap-grid">
-            <div class="rekap-card">
-                <div class="rekap-label">Total Volume Cetak</div>
-                <div id="total_volume" class="rekap-val" style="color: #0284c7;">-</div>
-            </div>
-            <div class="rekap-card">
-                <div class="rekap-label">Rata-Rata NG Level</div>
-                <div id="avg_ng" class="rekap-val" style="color: #dc2626;">-</div>
-            </div>
-            <div class="rekap-card">
-                <div class="rekap-label">Total Batch Selesai</div>
-                <div id="total_batch" class="rekap-val" style="color: #16a34a;">-</div>
-            </div>
-        </div>
+    </div>
 
-        <!-- CHARTS -->
-        <div class="charts-container">
-            <div class="chart-box">
-                <div class="chart-box-title">Tren Produksi Harian (7 Hari Terakhir)</div>
-                <canvas id="chartLine" height="110"></canvas>
-            </div>
-            <div class="chart-box">
-                <div class="chart-box-title">Distribusi 5 SKU Teratas</div>
-                <canvas id="chartPie" height="110"></canvas>
-            </div>
-        </div>
-
-        <!-- RIWAYAT BATCH -->
-        <div class="table-box">
-            <div class="chart-box-title" style="display: flex; justify-content: space-between;">
-                <span>Riwayat Batch Produksi Terkini</span>
-                <span id="record_count" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">-</span>
-            </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Waktu Selesai</th>
-                        <th>Durasi</th>
-                        <th>File Sumber</th>
-                        <th>Total Data</th>
-                        <th>Total Print</th>
-                        <th>NG Level</th>
-                    </tr>
-                </thead>
-                <tbody id="table_body">
-                    <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 18px;">Memuat data riwayat...</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="footer-note">
-            Omega MX Industrial Batch Printing & QC System v2.0 | Management Room View
-        </div>
+    <div class="footer-note">
+        Omega MX Industrial Batch Printing & QC System v2.0 | Management Room View (1080p Optimized)
     </div>
 
     <script>
         let lineChartInstance = null;
         let pieChartInstance = null;
+
+        // Fullscreen Toggle
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    alert("Tidak dapat masuk mode layar penuh: " + err.message);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
 
         // Jam Navbar
         function updateClock() {
@@ -1048,7 +1189,7 @@ class AnalyticsServer:
                     document.getElementById('total_volume').innerText = "0";
                     document.getElementById('avg_ng').innerText = "0.0";
                     document.getElementById('total_batch').innerText = "0";
-                    document.getElementById('table_body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 18px;">Belum ada riwayat batch produksi tercatat.</td></tr>';
+                    document.getElementById('table_body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 14px;">Belum ada riwayat batch produksi tercatat.</td></tr>';
                     return;
                 }
 
@@ -1084,11 +1225,11 @@ class AnalyticsServer:
                     },
                     options: { 
                         responsive: true, 
-                        maintainAspectRatio: true,
+                        maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
                         scales: {
-                            y: { grid: { color: '#f1f5f9' } },
-                            x: { grid: { display: false } }
+                            y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+                            x: { grid: { display: false }, ticks: { font: { size: 10 } } }
                         }
                     }
                 });
@@ -1114,8 +1255,23 @@ class AnalyticsServer:
                     },
                     options: { 
                         responsive: true, 
-                        maintainAspectRatio: true,
-                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }
+                        maintainAspectRatio: false,
+                        plugins: { 
+                            legend: { 
+                                position: 'right', 
+                                labels: { 
+                                    boxWidth: 10, 
+                                    font: { size: 9 },
+                                    generateLabels: function(chart) {
+                                        const orig = Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart);
+                                        orig.forEach(l => {
+                                            if (l.text.length > 18) l.text = l.text.substring(0, 16) + '..';
+                                        });
+                                        return orig;
+                                    }
+                                } 
+                            } 
+                        }
                     }
                 });
 
@@ -1126,8 +1282,8 @@ class AnalyticsServer:
                     });
                 }
 
-                // Table Data (10 Terbaru)
-                const recent = [...data].reverse().slice(0, 10);
+                // Table Data (Terbaru)
+                const recent = [...data].reverse().slice(0, 8);
                 const rows = recent.map(r => {
                     const ngBadge = parseInt(r.NG_Level) > 0 
                         ? `<span class="tag-ng-clean">${escapeHtml(r.NG_Level)} NG</span>` 
@@ -1135,7 +1291,7 @@ class AnalyticsServer:
                     return `<tr>
                         <td>${escapeHtml(r.Waktu_Selesai)}</td>
                         <td>${escapeHtml(r.Durasi)}</td>
-                        <td><b>${escapeHtml(r.Source)}</b></td>
+                        <td title="${escapeHtml(r.Source)}"><b>${escapeHtml(r.Source.length > 25 ? r.Source.substring(0,23) + '..' : r.Source)}</b></td>
                         <td>${parseInt(r.Total_Data) || 0}</td>
                         <td>${parseInt(r.Total_Print) || 0}</td>
                         <td>${ngBadge}</td>
