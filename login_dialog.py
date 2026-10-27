@@ -66,22 +66,36 @@ class LoginDialog:
         container = tk.Frame(self.dialog, bg="#f0f0f0", padx=25, pady=18)
         container.pack(fill=tk.BOTH, expand=True)
 
-        # Label Judul Dialog
-        title_text = "Ganti Akun / Switch User" if self.is_switch_user else "Silakan Masuk ke Sistem"
+        # Label Judul Dialog (Bahasa Indonesia Baku)
+        title_text = "Ganti Akun Pengguna" if self.is_switch_user else "Silakan Masuk ke Sistem"
         lbl_form_title = tk.Label(container, text=title_text, font=("Segoe UI", 12, "bold"), fg="#1c446c", bg="#f0f0f0")
         lbl_form_title.pack(anchor=tk.W, pady=(0, 14))
 
-        # USERNAME / ROLE
-        lbl_user = tk.Label(container, text="Username / Peran:", font=("Segoe UI", 9, "bold"), fg="#222222", bg="#f0f0f0")
+        # ID PENGGUNA (Dinamis dari basis data seluruh pengguna terdaftar)
+        lbl_user = tk.Label(container, text="ID Pengguna:", font=("Segoe UI", 9, "bold"), fg="#222222", bg="#f0f0f0")
         lbl_user.pack(anchor=tk.W, pady=(0, 3))
 
-        self.var_user = tk.StringVar(value="operator")
-        self.cb_user = ttk.Combobox(container, textvariable=self.var_user, values=["operator", "admin"], font=("Segoe UI", 9), state="normal")
+        registered_users = []
+        try:
+            users_info = self.auth_manager.get_all_users_details()
+            registered_users = [u["username"] for u in users_info if u.get("username")]
+        except Exception as e:
+            print(f"Gagal memuat daftar pengguna: {e}")
+
+        if not registered_users:
+            registered_users = ["admin", "operator"]
+
+        default_user = registered_users[0]
+        if "operator" in registered_users:
+            default_user = "operator"
+
+        self.var_user = tk.StringVar(value=default_user)
+        self.cb_user = ttk.Combobox(container, textvariable=self.var_user, values=registered_users, font=("Segoe UI", 9), state="readonly")
         self.cb_user.pack(fill=tk.X, pady=(0, 10), ipady=2)
         self.cb_user.bind("<<ComboboxSelected>>", lambda e: self.ent_password.focus_set())
 
-        # PASSWORD
-        lbl_pass = tk.Label(container, text="Password:", font=("Segoe UI", 9, "bold"), fg="#222222", bg="#f0f0f0")
+        # KATA SANDI
+        lbl_pass = tk.Label(container, text="Kata Sandi:", font=("Segoe UI", 9, "bold"), fg="#222222", bg="#f0f0f0")
         lbl_pass.pack(anchor=tk.W, pady=(0, 3))
 
         self.var_pass = tk.StringVar()
@@ -91,7 +105,7 @@ class LoginDialog:
 
         # TOGGLE SHOW/HIDE PASSWORD
         self.var_show_pass = tk.BooleanVar(value=False)
-        chk_show = tk.Checkbutton(container, text="Tampilkan Password", variable=self.var_show_pass,
+        chk_show = tk.Checkbutton(container, text="Tampilkan Kata Sandi", variable=self.var_show_pass,
                                   font=("Segoe UI", 8), bg="#f0f0f0", activebackground="#f0f0f0",
                                   command=self._toggle_password_visibility)
         chk_show.pack(anchor=tk.W, pady=(0, 4))
@@ -101,7 +115,7 @@ class LoginDialog:
         self.lbl_error.pack(fill=tk.X, pady=(0, 4))
 
         # TOMBOL LOGIN (Windows 7 Aero Primary Button dengan Bevel 3D & Efek Glow)
-        btn_login = tk.Button(container, text="LOGIN MASUK", font=("Segoe UI", 9, "bold"),
+        btn_login = tk.Button(container, text="MASUK", font=("Segoe UI", 9, "bold"),
                               bg="#246c9e", fg="#ffffff", activebackground="#318ac8", activeforeground="#ffffff",
                               relief="raised", bd=1, highlightthickness=1, highlightbackground="#154970",
                               cursor="hand2", pady=6, command=self.do_login)
@@ -139,11 +153,11 @@ class LoginDialog:
         password = self.var_pass.get().strip()
 
         if not username:
-            self.lbl_error.config(text="Username tidak boleh kosong.")
+            self.lbl_error.config(text="ID Pengguna tidak boleh kosong.")
             return
 
         if not password:
-            self.lbl_error.config(text="Password tidak boleh kosong.")
+            self.lbl_error.config(text="Kata sandi tidak boleh kosong.")
             self.ent_password.focus_set()
             return
 

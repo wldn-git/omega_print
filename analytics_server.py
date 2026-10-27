@@ -1,6 +1,7 @@
 # analytics_server.py
 import os
 import sys
+import io
 import pandas as pd
 from flask import Flask, jsonify, send_from_directory, send_file, Response, request
 
@@ -41,24 +42,39 @@ class AnalyticsServer:
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)})
 
-        # Endpoint Ekspor Data Mentah CSV untuk Web Analytics
+        # Endpoint Ekspor Data Mentah CSV untuk Web Analytics (Mendukung Filter Fleksibel)
         @self.app.route('/api/v1/export-raw-csv', methods=['GET'])
         def export_raw_csv():
             try:
-                if os.path.exists(self.history_log_file):
-                    return send_file(
-                        self.history_log_file,
-                        mimetype="text/csv",
-                        as_attachment=True,
-                        download_name="riwayat_produksi_mentah.csv"
-                    )
-                else:
+                days = request.args.get('days', type=int)
+                start_date = request.args.get('start_date')
+                end_date = request.args.get('end_date')
+
+                if not os.path.exists(self.history_log_file):
                     csv_content = "Waktu_Mulai,Waktu_Selesai,Durasi,Source,Total_Data,Total_Print,NG_Level,Report_File\n"
                     return Response(
                         csv_content,
-                        mimetype="text/csv",
+                        mimetype="text/csv; charset=utf-8",
                         headers={"Content-Disposition": "attachment;filename=riwayat_produksi_mentah.csv"}
                     )
+
+                df = pd.read_csv(self.history_log_file)
+                if not df.empty and 'Waktu_Selesai' in df.columns:
+                    if days and days > 0:
+                        cutoff_str = (pd.Timestamp.now() - pd.Timedelta(days=days)).strftime("%Y-%m-%d")
+                        df = df[df['Waktu_Selesai'] >= cutoff_str]
+                    elif start_date and end_date:
+                        df = df[(df['Waktu_Selesai'] >= start_date) & (df['Waktu_Selesai'] <= end_date + " 23:59:59")]
+
+                output = io.StringIO()
+                df.to_csv(output, index=False, encoding='utf-8')
+                csv_bytes = output.getvalue().encode('utf-8')
+
+                return Response(
+                    csv_bytes,
+                    mimetype="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": "attachment;filename=riwayat_produksi_mentah.csv"}
+                )
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -348,6 +364,80 @@ class AnalyticsServer:
             background: #e0f2fe;
             color: #0284c7;
             border: 1px solid #bae6fd;
+        }
+
+        /* Filter Controls Fleksibel (7D, 30D, Semua, Kustom) */
+        .filter-controls-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .filter-pill-group {
+            display: inline-flex;
+            background: #e2e8f0;
+            border-radius: 6px;
+            padding: 2px;
+            gap: 2px;
+        }
+        .filter-pill-btn {
+            font-family: inherit;
+            font-size: 0.70rem;
+            font-weight: 600;
+            padding: 3px 9px;
+            border-radius: 4px;
+            border: none;
+            background: transparent;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .filter-pill-btn:hover {
+            background: #cbd5e1;
+            color: #0f172a;
+        }
+        .filter-pill-btn.active {
+            background: #ffffff;
+            color: #0f172a;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+            font-weight: 700;
+        }
+        .custom-date-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border-light);
+            padding: 6px 14px;
+            font-size: 0.74rem;
+        }
+        .input-date-clean {
+            font-family: inherit;
+            font-size: 0.72rem;
+            padding: 2px 6px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            outline: none;
+            background: #ffffff;
+            color: var(--text-title);
+        }
+        .input-date-clean:focus {
+            border-color: #0284c7;
+        }
+        .btn-filter-apply {
+            font-family: inherit;
+            font-size: 0.70rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border: none;
+            border-radius: 4px;
+            background: #0284c7;
+            color: #ffffff;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-filter-apply:hover {
+            background: #0369a1;
         }
 
         .tag-history {
@@ -982,7 +1072,24 @@ class AnalyticsServer:
         <section class="master-panel panel-history">
             <div class="panel-header-bar header-bar-history">
                 <div class="panel-header-title"><span>Rekapitulasi Produksi Terkumpul</span></div>
-                <span class="panel-badge-tag tag-history">Basis Data - 7 Hari Terakhir</span>
+                <div class="filter-controls-wrap">
+                    <div class="filter-pill-group">
+                        <button class="filter-pill-btn active" id="btnFilter7D" onclick="setHistoryFilter('7d')">7 Hari</button>
+                        <button class="filter-pill-btn" id="btnFilter30D" onclick="setHistoryFilter('30d')">30 Hari</button>
+                        <button class="filter-pill-btn" id="btnFilterAll" onclick="setHistoryFilter('all')">Semua</button>
+                        <button class="filter-pill-btn" id="btnFilterCustom" onclick="toggleCustomRange()">Kustom</button>
+                    </div>
+                    <span class="panel-badge-tag tag-history" id="badgeRangeText">Basis Data: 7 Hari Terakhir</span>
+                </div>
+            </div>
+
+            <!-- Baris Input Tanggal Kustom (Tersembunyi secara default, muncul saat klik Kustom) -->
+            <div id="customDateRow" class="custom-date-bar" style="display: none;">
+                <span style="font-weight: 600; color: var(--text-muted);">Rentang Tanggal:</span>
+                <input type="date" id="customStartDate" class="input-date-clean">
+                <span style="color: var(--text-muted);">s/d</span>
+                <input type="date" id="customEndDate" class="input-date-clean">
+                <button class="btn-filter-apply" onclick="applyCustomDateRange()">Terapkan Filter</button>
             </div>
 
             <div class="panel-content">
@@ -1005,7 +1112,7 @@ class AnalyticsServer:
                 <!-- 2 Grafik Berdampingan -->
                 <div class="charts-row">
                     <div class="chart-box-clean">
-                        <div class="chart-title-sm">Tren Produksi Harian (7 Hari Terakhir)</div>
+                        <div class="chart-title-sm" id="chartLineTitle">Tren Produksi Harian (7 Hari Terakhir)</div>
                         <div class="chart-canvas-wrap">
                             <canvas id="chartLine"></canvas>
                         </div>
@@ -1023,7 +1130,7 @@ class AnalyticsServer:
                     <div class="table-header-sm">
                         <span>Riwayat Batch Produksi Terkini</span>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <a href="/api/v1/export-raw-csv" class="btn-download-csv" download="riwayat_produksi_mentah.csv" title="Unduh seluruh data riwayat dalam format CSV">Unduh Data Mentah (CSV)</a>
+                            <a href="/api/v1/export-raw-csv?days=7" id="btnDownloadCsv" class="btn-download-csv" download="riwayat_produksi_mentah.csv" title="Unduh seluruh data riwayat dalam format CSV">Unduh Data Mentah (CSV)</a>
                             <span id="record_count" style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">-</span>
                         </div>
                     </div>
@@ -1222,111 +1329,238 @@ class AnalyticsServer:
             }
         }
 
-        // 2. MEMUAT DATA REKAPITULASI HISTORIS (Setiap 10 detik)
+        // 2. MANAJEMEN DATA REKAPITULASI HISTORIS FLEKSIBEL (7D, 30D, SEMUA, KUSTOM)
+        let rawHistoryData = [];
+        let currentFilterMode = '7d';
+        let customStartVal = '';
+        let customEndVal = '';
+
+        function setHistoryFilter(mode) {
+            currentFilterMode = mode;
+            ['btnFilter7D', 'btnFilter30D', 'btnFilterAll', 'btnFilterCustom'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('active');
+            });
+
+            const rowCustom = document.getElementById('customDateRow');
+            if (mode === '7d') {
+                document.getElementById('btnFilter7D').classList.add('active');
+                if (rowCustom) rowCustom.style.display = 'none';
+            } else if (mode === '30d') {
+                document.getElementById('btnFilter30D').classList.add('active');
+                if (rowCustom) rowCustom.style.display = 'none';
+            } else if (mode === 'all') {
+                document.getElementById('btnFilterAll').classList.add('active');
+                if (rowCustom) rowCustom.style.display = 'none';
+            } else if (mode === 'custom') {
+                document.getElementById('btnFilterCustom').classList.add('active');
+                if (rowCustom) rowCustom.style.display = 'flex';
+            }
+            renderFilteredHistory();
+        }
+
+        function toggleCustomRange() {
+            const rowCustom = document.getElementById('customDateRow');
+            if (!rowCustom) return;
+            const isHidden = (rowCustom.style.display === 'none');
+            if (isHidden) {
+                rowCustom.style.display = 'flex';
+                // Inisialisasi default tanggal jika kosong
+                const now = new Date();
+                const past7 = new Date();
+                past7.setDate(now.getDate() - 7);
+                const toIsoDate = d => d.toISOString().split('T')[0];
+                if (!document.getElementById('customStartDate').value) {
+                    document.getElementById('customStartDate').value = toIsoDate(past7);
+                }
+                if (!document.getElementById('customEndDate').value) {
+                    document.getElementById('customEndDate').value = toIsoDate(now);
+                }
+            } else {
+                rowCustom.style.display = 'none';
+            }
+        }
+
+        function applyCustomDateRange() {
+            const s = document.getElementById('customStartDate').value;
+            const e = document.getElementById('customEndDate').value;
+            if (!s || !e) {
+                alert("Silakan pilih tanggal mulai dan tanggal selesai.");
+                return;
+            }
+            if (s > e) {
+                alert("Tanggal mulai tidak boleh lebih besar dari tanggal selesai.");
+                return;
+            }
+            customStartVal = s;
+            customEndVal = e;
+            setHistoryFilter('custom');
+        }
+
         async function loadHistoryData() {
             try {
                 const res = await fetch('/api/history');
                 const data = await res.json();
-                
-                if (!Array.isArray(data) || data.length === 0) {
-                    document.getElementById('total_volume').innerText = "0";
-                    document.getElementById('avg_ng').innerText = "0.0";
-                    document.getElementById('total_batch').innerText = "0";
-                    document.getElementById('table_body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 14px;">Belum ada riwayat batch produksi tercatat.</td></tr>';
-                    return;
+                if (Array.isArray(data)) {
+                    rawHistoryData = data;
+                    renderFilteredHistory();
                 }
+            } catch (err) {
+                console.error("Gagal memuat data riwayat dari server:", err);
+            }
+        }
 
-                const totalVol = data.reduce((s, i) => s + (parseInt(i.Total_Print) || 0), 0);
-                const totalNG = data.reduce((s, i) => s + (parseInt(i.NG_Level) || 0), 0);
-                const avgNG = data.length > 0 ? (totalNG / data.length).toFixed(2) : "0.0";
+        function renderFilteredHistory() {
+            if (!Array.isArray(rawHistoryData) || rawHistoryData.length === 0) {
+                document.getElementById('total_volume').innerText = "0";
+                document.getElementById('avg_ng').innerText = "0.0";
+                document.getElementById('total_batch').innerText = "0";
+                document.getElementById('record_count').innerText = "0 Batch";
+                document.getElementById('table_body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 14px;">Belum ada riwayat batch produksi tercatat.</td></tr>';
+                return;
+            }
 
-                document.getElementById('total_volume').innerText = totalVol.toLocaleString();
-                document.getElementById('avg_ng').innerText = avgNG;
-                document.getElementById('total_batch').innerText = data.length.toLocaleString();
-                document.getElementById('record_count').innerText = data.length + " Batch";
+            const now = new Date();
+            const toIsoDate = d => d.toISOString().split('T')[0];
+            let filtered = [];
+            let badgeText = "";
+            let chartTitleText = "";
+            let exportUrl = "/api/v1/export-raw-csv";
 
-                // Grafik Garis Tren Harian
-                const dates = [...new Set(data.map(i => (i.Waktu_Selesai || "").split(' ')[0]).filter(Boolean))].slice(-7);
-                const volData = dates.map(d => data.filter(i => (i.Waktu_Selesai || "").startsWith(d)).reduce((s, i) => s + (parseInt(i.Total_Print) || 0), 0));
+            if (currentFilterMode === '7d') {
+                const past7 = new Date();
+                past7.setDate(now.getDate() - 7);
+                const cutoff = toIsoDate(past7);
+                filtered = rawHistoryData.filter(i => (i.Waktu_Selesai || "").split(' ')[0] >= cutoff);
+                badgeText = "Basis Data: 7 Hari Terakhir";
+                chartTitleText = "Tren Produksi Harian (7 Hari Terakhir)";
+                exportUrl = "/api/v1/export-raw-csv?days=7";
+            } else if (currentFilterMode === '30d') {
+                const past30 = new Date();
+                past30.setDate(now.getDate() - 30);
+                const cutoff = toIsoDate(past30);
+                filtered = rawHistoryData.filter(i => (i.Waktu_Selesai || "").split(' ')[0] >= cutoff);
+                badgeText = "Basis Data: 30 Hari Terakhir";
+                chartTitleText = "Tren Produksi Harian (30 Hari Terakhir)";
+                exportUrl = "/api/v1/export-raw-csv?days=30";
+            } else if (currentFilterMode === 'custom') {
+                filtered = rawHistoryData.filter(i => {
+                    const d = (i.Waktu_Selesai || "").split(' ')[0];
+                    return d >= customStartVal && d <= customEndVal;
+                });
+                badgeText = `Basis Data: ${customStartVal} s/d ${customEndVal}`;
+                chartTitleText = `Tren Produksi Harian (${customStartVal} s/d ${customEndVal})`;
+                exportUrl = `/api/v1/export-raw-csv?start_date=${encodeURIComponent(customStartVal)}&end_date=${encodeURIComponent(customEndVal)}`;
+            } else { // 'all'
+                filtered = [...rawHistoryData];
+                badgeText = "Basis Data: Seluruh Riwayat";
+                chartTitleText = "Tren Produksi Harian (Seluruh Data)";
+                exportUrl = "/api/v1/export-raw-csv";
+            }
 
-                if (lineChartInstance) lineChartInstance.destroy();
-                lineChartInstance = new Chart(document.getElementById('chartLine'), {
-                    type: 'line',
-                    data: {
-                        labels: dates.length ? dates : ['Hari Ini'],
-                        datasets: [{
-                            label: 'Volume Cetak',
-                            data: volData.length ? volData : [0],
-                            borderColor: '#0284c7',
-                            backgroundColor: 'rgba(2, 132, 199, 0.08)',
-                            tension: 0.25,
-                            fill: true,
-                            borderWidth: 2,
-                            pointBackgroundColor: '#0284c7',
-                            pointRadius: 3
-                        }]
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
-                            x: { grid: { display: false }, ticks: { font: { size: 10 } } }
-                        }
+            // Update Badge & Header
+            const elBadge = document.getElementById('badgeRangeText');
+            if (elBadge) elBadge.innerText = badgeText;
+            const elChartTitle = document.getElementById('chartLineTitle');
+            if (elChartTitle) elChartTitle.innerText = chartTitleText;
+            const elBtnCsv = document.getElementById('btnDownloadCsv');
+            if (elBtnCsv) elBtnCsv.setAttribute('href', exportUrl);
+
+            // Update KPI Kumulatif
+            const totalVol = filtered.reduce((s, i) => s + (parseInt(i.Total_Print) || 0), 0);
+            const totalNG = filtered.reduce((s, i) => s + (parseInt(i.NG_Level) || 0), 0);
+            const avgNG = filtered.length > 0 ? (totalNG / filtered.length).toFixed(2) : "0.0";
+
+            document.getElementById('total_volume').innerText = totalVol.toLocaleString();
+            document.getElementById('avg_ng').innerText = avgNG;
+            document.getElementById('total_batch').innerText = filtered.length.toLocaleString();
+            document.getElementById('record_count').innerText = `${filtered.length} Batch`;
+
+            // Grafik Garis Tren Harian Terfilter (Diurutkan Kronologis)
+            const dates = [...new Set(filtered.map(i => (i.Waktu_Selesai || "").split(' ')[0]).filter(Boolean))].sort();
+            const volData = dates.map(d => filtered.filter(i => (i.Waktu_Selesai || "").startsWith(d)).reduce((s, i) => s + (parseInt(i.Total_Print) || 0), 0));
+
+            if (lineChartInstance) lineChartInstance.destroy();
+            lineChartInstance = new Chart(document.getElementById('chartLine'), {
+                type: 'line',
+                data: {
+                    labels: dates.length ? dates : ['Tidak Ada Data'],
+                    datasets: [{
+                        label: 'Volume Cetak',
+                        data: volData.length ? volData : [0],
+                        borderColor: '#0284c7',
+                        backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                        tension: 0.25,
+                        fill: true,
+                        borderWidth: 2,
+                        pointBackgroundColor: '#0284c7',
+                        pointRadius: 3
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
                     }
-                });
+                }
+            });
 
-                // Grafik Donat SKU
-                const skus = {};
-                data.forEach(i => {
-                    const src = i.Source || "Lainnya";
-                    skus[src] = (skus[src] || 0) + (parseInt(i.Total_Print) || 0);
-                });
-                const topSkus = Object.entries(skus).sort((a,b) => b[1]-a[1]).slice(0, 5);
+            // Grafik Donat SKU Terfilter
+            const skus = {};
+            filtered.forEach(i => {
+                const src = i.Source || "Lainnya";
+                skus[src] = (skus[src] || 0) + (parseInt(i.Total_Print) || 0);
+            });
+            const topSkus = Object.entries(skus).sort((a,b) => b[1]-a[1]).slice(0, 5);
 
-                if (pieChartInstance) pieChartInstance.destroy();
-                pieChartInstance = new Chart(document.getElementById('chartPie'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: topSkus.map(i => i[0]),
-                        datasets: [{
-                            data: topSkus.map(i => i[1]),
-                            backgroundColor: ['#16a34a', '#eab308', '#ea580c', '#dc2626', '#8b5cf6'],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false,
-                        plugins: { 
-                            legend: { 
-                                position: 'right', 
-                                labels: { 
-                                    boxWidth: 10, 
-                                    font: { size: 9 },
-                                    generateLabels: function(chart) {
-                                        const orig = Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart);
-                                        orig.forEach(l => {
-                                            if (l.text.length > 18) l.text = l.text.substring(0, 16) + '..';
-                                        });
-                                        return orig;
-                                    }
-                                } 
+            if (pieChartInstance) pieChartInstance.destroy();
+            pieChartInstance = new Chart(document.getElementById('chartPie'), {
+                type: 'doughnut',
+                data: {
+                    labels: topSkus.length ? topSkus.map(i => i[0]) : ['Tidak Ada Data'],
+                    datasets: [{
+                        data: topSkus.length ? topSkus.map(i => i[1]) : [1],
+                        backgroundColor: topSkus.length ? ['#16a34a', '#eab308', '#ea580c', '#dc2626', '#8b5cf6'] : ['#e2e8f0'],
+                        borderWidth: 1
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { 
+                            position: 'right', 
+                            labels: { 
+                                boxWidth: 10, 
+                                font: { size: 9 },
+                                generateLabels: function(chart) {
+                                    const orig = Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart);
+                                    orig.forEach(l => {
+                                        if (l.text.length > 18) l.text = l.text.substring(0, 16) + '..';
+                                    });
+                                    return orig;
+                                }
                             } 
-                        }
+                        } 
                     }
-                });
-
-                function escapeHtml(text) {
-                    if (!text) return '-';
-                    return String(text).replace(/[&<>"']/g, function(m) {
-                        return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[m];
-                    });
                 }
+            });
 
-                // Tabel Data Riwayat Terkini
-                const recent = [...data].reverse().slice(0, 8);
+            function escapeHtml(text) {
+                if (!text) return '-';
+                return String(text).replace(/[&<>"']/g, function(m) {
+                    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[m];
+                });
+            }
+
+            // Tabel Data Riwayat Terkini Terfilter
+            if (filtered.length === 0) {
+                document.getElementById('table_body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 14px;">Tidak ada riwayat batch produksi pada rentang tanggal ini.</td></tr>';
+            } else {
+                const recent = [...filtered].reverse().slice(0, 12);
                 const rows = recent.map(r => {
                     const ngVal = parseInt(r.NG_Level) || 0;
                     const ngBadge = ngVal > 0 
@@ -1342,9 +1576,6 @@ class AnalyticsServer:
                     </tr>`;
                 }).join('');
                 document.getElementById('table_body').innerHTML = rows;
-
-            } catch (err) {
-                console.error("Gagal memuat data riwayat:", err);
             }
         }
 
