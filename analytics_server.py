@@ -51,7 +51,7 @@ class AnalyticsServer:
                 end_date = request.args.get('end_date')
 
                 if not os.path.exists(self.history_log_file):
-                    csv_content = "Waktu_Mulai,Waktu_Selesai,Durasi,Source,Total_Data,Total_Print,NG_Level,Report_File\n"
+                    csv_content = "Waktu_Mulai,Waktu_Selesai,Durasi,Source,Total_Data,Total_Print,Total_NG,NG_Level,Report_File\n"
                     return Response(
                         csv_content,
                         mimetype="text/csv; charset=utf-8",
@@ -458,8 +458,11 @@ class AnalyticsServer:
         .status-box-clean {
             background: #fafbfc;
             border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 12px 14px;
+            border-radius: 5px;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
         .status-top-line {
@@ -468,15 +471,14 @@ class AnalyticsServer:
             align-items: center;
             padding-bottom: 10px;
             border-bottom: 1px solid var(--border-light);
-            margin-bottom: 10px;
         }
 
         .status-pill {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 3px 12px;
-            border-radius: 3px;
+            padding: 4px 12px;
+            border-radius: 4px;
             font-size: 0.78rem;
             font-weight: 800;
             letter-spacing: 0.5px;
@@ -491,15 +493,27 @@ class AnalyticsServer:
 
         .meta-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(6, minmax(0, 1fr));
             gap: 10px;
-            margin-bottom: 10px;
         }
 
         .meta-cell {
+            background: #ffffff;
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            padding: 9px 12px;
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .meta-span-3 {
+            grid-column: span 3;
+        }
+
+        .meta-span-2 {
+            grid-column: span 2;
         }
 
         .meta-cell-label {
@@ -511,7 +525,7 @@ class AnalyticsServer:
         }
 
         .meta-cell-val {
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             font-weight: 700;
             color: var(--text-title);
             white-space: nowrap;
@@ -520,19 +534,24 @@ class AnalyticsServer:
         }
 
         .hw-status-row {
-            padding-top: 8px;
+            padding-top: 10px;
             border-top: 1px solid var(--border-light);
-            display: flex;
-            flex-wrap: wrap;
-            gap: 14px;
-            font-size: 0.72rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 8px;
+            font-size: 0.73rem;
             color: var(--text-muted);
         }
 
         .hw-item {
-            display: inline-flex;
+            background: #ffffff;
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            padding: 7px 10px;
+            display: flex;
             align-items: center;
-            gap: 5px;
+            justify-content: space-between;
+            gap: 6px;
         }
 
         .hw-val-online { font-weight: 700; color: #166534; }
@@ -541,22 +560,23 @@ class AnalyticsServer:
         /* KARTU HMI */
         .hmi-cards-row-top {
             display: grid;
-            grid-template-columns: 1.3fr 1fr;
+            grid-template-columns: 1.25fr 1fr;
             gap: 12px;
+            flex: 1;
         }
 
         .hmi-box-clean {
             background: #ffffff;
             border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 12px;
+            border-radius: 5px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
         }
 
         .hmi-header-sm {
-            font-size: 0.8rem;
+            font-size: 0.84rem;
             font-weight: 700;
             color: var(--text-title);
             margin-bottom: 8px;
@@ -570,8 +590,9 @@ class AnalyticsServer:
             display: flex;
             align-items: center;
             justify-content: space-around;
-            padding: 2px 0 6px 0;
-            gap: 10px;
+            padding: 8px 0;
+            gap: 12px;
+            flex: 1;
         }
 
         .gauge-svg-wrap {
@@ -894,6 +915,24 @@ class AnalyticsServer:
             font-size: 0.68rem;
         }
 
+        .tag-reprint-clean {
+            background: #fef3c7;
+            color: #b45309;
+            padding: 1px 6px;
+            border-radius: 2px;
+            font-weight: 700;
+            font-size: 0.68rem;
+        }
+
+        .tag-zero-clean {
+            background: #f1f5f9;
+            color: #475569;
+            padding: 1px 6px;
+            border-radius: 2px;
+            font-weight: 700;
+            font-size: 0.68rem;
+        }
+
         .footer-note {
             text-align: center;
             padding: 6px 0;
@@ -903,18 +942,44 @@ class AnalyticsServer:
             background: #ffffff;
             flex-shrink: 0;
         }
+
+        .lang-switch-group {
+            display: inline-flex;
+            border: 1px solid #334155;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .lang-btn {
+            background: #1e293b;
+            color: #94a3b8;
+            border: none;
+            padding: 4px 9px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .lang-btn.active {
+            background: #2563eb;
+            color: #ffffff;
+        }
     </style>
 </head>
 <body>
     <!-- Navigasi Atas -->
     <nav class="navbar">
         <div class="nav-brand">
-            
-            <h1>ANALISIS PRODUKSI OMEGA MX</h1>
-            <span class="badge-dept">RUANG MANAJEMEN</span>
+            <h1 id="i18n_navTitle">ANALISIS PRODUKSI OMEGA MX</h1>
+            <span class="badge-dept" id="i18n_navDept">RUANG MANAJEMEN</span>
         </div>
         <div class="nav-right">
-            <button class="btn-fullscreen" onclick="toggleFullScreen()" title="Tampilkan Layar Penuh">Layar Penuh (F11)</button>
+            <div class="lang-switch-group" title="Pilih Bahasa / Select Language">
+                <button class="lang-btn active" id="btnWebLangId" onclick="setWebLang('id')">IND</button>
+                <button class="lang-btn" id="btnWebLangEn" onclick="setWebLang('en')">ENG</button>
+            </div>
+            <button class="btn-fullscreen" id="i18n_btnFull" onclick="toggleFullScreen()" title="Tampilkan Layar Penuh">Layar Penuh (F11)</button>
             <span class="clock-display" id="clockText">--:--:-- WIB</span>
             <span class="badge-live" id="badgeLive">
                 <span class="dot-status dot-green" id="dotLive"></span>
@@ -931,16 +996,16 @@ class AnalyticsServer:
             <div class="panel-header-bar header-bar-realtime">
                 <div class="panel-header-title">
                     <span class="dot-status dot-green"></span>
-                    <span>Kondisi Lapangan Terkini</span>
+                    <span id="i18n_leftHeader">Kondisi Lapangan Terkini</span>
                 </div>
-                <span class="panel-badge-tag tag-realtime">Telemetri Langsung - Siklus Aktif</span>
+                <span class="panel-badge-tag tag-realtime" id="i18n_leftBadge">Telemetri Langsung - Siklus Aktif</span>
             </div>
 
             <div class="panel-content">
                 <!-- Status Operasional & Batch Aktif -->
                 <div class="status-box-clean">
                     <div class="status-top-line">
-                        <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Status Operasional Mesin</span>
+                        <span id="i18n_lblSysOpStatus" style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Status Operasional Mesin</span>
                         <div class="status-pill pill-standby" id="statusPill">
                             <span class="dot-status dot-amber" id="statusDot"></span>
                             <span id="statusTitle">SIAGA</span>
@@ -948,51 +1013,47 @@ class AnalyticsServer:
                     </div>
 
                     <div class="meta-grid">
-                        <div class="meta-cell">
-                            <span class="meta-cell-label">Surat Perintah Kerja (SPK)</span>
+                        <div class="meta-cell meta-span-3">
+                            <span class="meta-cell-label" id="i18n_lblWo">Surat Perintah Kerja (SPK)</span>
                             <span class="meta-cell-val" id="val_wo">-</span>
                         </div>
-                        <div class="meta-cell">
-                            <span class="meta-cell-label">Kode Produk (SKU)</span>
-                            <span class="meta-cell-val" id="val_sku">-</span>
-                        </div>
-                        <div class="meta-cell">
-                            <span class="meta-cell-label">File Sumber Data</span>
+                        <div class="meta-cell meta-span-3">
+                            <span class="meta-cell-label" id="i18n_lblFile">File Sumber Data</span>
                             <span class="meta-cell-val" id="val_file">-</span>
                         </div>
-                        <div class="meta-cell">
-                            <span class="meta-cell-label">Operator Bertugas</span>
+                        <div class="meta-cell meta-span-2">
+                            <span class="meta-cell-label" id="i18n_lblSku">Kode Produk (SKU)</span>
+                            <span class="meta-cell-val" id="val_sku">-</span>
+                        </div>
+                        <div class="meta-cell meta-span-2">
+                            <span class="meta-cell-label" id="i18n_lblOp">Operator Bertugas</span>
                             <span class="meta-cell-val" id="val_operator">admin</span>
                         </div>
-                        <div class="meta-cell">
-                            <span class="meta-cell-label">Waktu Mulai Batch</span>
+                        <div class="meta-cell meta-span-2">
+                            <span class="meta-cell-label" id="i18n_lblStart">Waktu Mulai Batch</span>
                             <span class="meta-cell-val" id="val_start">-</span>
                         </div>
                     </div>
 
                     <div class="hw-status-row">
                         <div class="hw-item">
-                            <span>Kepala Cetak:</span>
+                            <span id="i18n_hwPrinter">Kepala Cetak:</span>
                             <span id="hw_printer_text" class="hw-val-offline">Terputus</span>
                         </div>
-                        <span>-</span>
                         <div class="hw-item">
-                            <span>Pemindai Sisi A:</span>
+                            <span id="i18n_hwS1">Pemindai Sisi A:</span>
                             <span id="hw_s1_text" class="hw-val-offline">Terputus</span>
                         </div>
-                        <span>-</span>
                         <div class="hw-item">
-                            <span>Pemindai Sisi B:</span>
+                            <span id="i18n_hwS2">Pemindai Sisi B:</span>
                             <span id="hw_s2_text" class="hw-val-offline">Terputus</span>
                         </div>
-                        <span>-</span>
                         <div class="hw-item">
-                            <span>Modbus I/O:</span>
+                            <span id="i18n_hwModbus">Modbus I/O:</span>
                             <span id="hw_modbus_text" class="hw-val-offline">Siaga</span>
                         </div>
-                        <span>-</span>
                         <div class="hw-item">
-                            <span>API Sistem Utama:</span>
+                            <span id="i18n_hwApi">API Sistem Utama:</span>
                             <span id="hw_api_text" class="hw-val-offline">Siap</span>
                         </div>
                     </div>
@@ -1003,7 +1064,7 @@ class AnalyticsServer:
                     <!-- Kemajuan Batch -->
                     <div class="hmi-box-clean">
                         <div class="hmi-header-sm">
-                            <span>Kemajuan Batch</span>
+                            <span id="i18n_batchProgress">Kemajuan Batch</span>
                         </div>
                         <div class="gauge-layout">
                             <div class="gauge-svg-wrap">
@@ -1012,16 +1073,16 @@ class AnalyticsServer:
                                     <path id="gaugePath" d="M 20 85 A 70 70 0 0 1 160 85" fill="none" stroke="#0284c7" stroke-width="15" stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="220" style="transition: stroke-dashoffset 0.4s ease;"/>
                                 </svg>
                                 <div class="gauge-percent-text" id="gaugePct">0%</div>
-                                <span class="gauge-subtext">KEMAJUAN</span>
+                                <span class="gauge-subtext" id="i18n_gaugeSub">KEMAJUAN</span>
                             </div>
 
                             <div class="gauge-info">
                                 <div class="gauge-counts">
                                     <span id="gaugeJudged">0</span> / <span id="gaugeTotal">0</span>
-                                </div>
-                                <span class="gauge-label">Kardus Selesai</span>
+                                                                </div>
+                                <span class="gauge-label" id="i18n_boxDone">Kardus Selesai</span>
                                 <div class="gauge-sisa">
-                                    Sisa: <span id="gaugeSisa">0</span>
+                                    <span id="i18n_lblRem">Sisa:</span> <span id="gaugeSisa">0</span>
                                 </div>
                             </div>
                         </div>
@@ -1031,37 +1092,13 @@ class AnalyticsServer:
                     <div class="hmi-box-clean">
                         <div class="ok-ng-grid">
                             <div class="counter-card counter-card-ok">
-                                <div class="counter-card-title">TOTAL LOLOS</div>
+                                <div class="counter-card-title" id="i18n_totOk">TOTAL LOLOS</div>
                                 <div class="counter-card-num" id="countOk">0</div>
                             </div>
                             <div class="counter-card counter-card-ng">
-                                <div class="counter-card-title">TOTAL AFKIR</div>
+                                <div class="counter-card-title" id="i18n_totNg">TOTAL AFKIR</div>
                                 <div class="counter-card-num" id="countNg">0</div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Row 3: Card Antrean Konveyor -->
-                <div class="hmi-box-clean">
-                    <div class="hmi-header-sm">
-                        <span>Antrean Konveyor</span>
-                        <span class="badge-transit-clean" id="badgeTransit">Dalam Lintasan: 0 Kardus</span>
-                    </div>
-
-                    <div class="conveyor-diagram">
-                        <div class="conveyor-track-line"></div>
-                        <div class="conveyor-point">
-                            <div class="node-circle-clean" id="nodeHeadPrint"></div>
-                            <span class="node-name">Kepala Cetak</span>
-                        </div>
-                        <div class="conveyor-point">
-                            <div class="node-circle-clean" id="nodeScanner"></div>
-                            <span class="node-name">Pemindai Ganda</span>
-                        </div>
-                        <div class="conveyor-point">
-                            <div class="node-circle-clean" id="nodePusher"></div>
-                            <span class="node-name">Pendorong (DO0)</span>
                         </div>
                     </div>
                 </div>
@@ -1071,7 +1108,7 @@ class AnalyticsServer:
         <!-- PANEL UTAMA 2: REKAPITULASI PRODUKSI TERKUMPUL (KANAN) -->
         <section class="master-panel panel-history">
             <div class="panel-header-bar header-bar-history">
-                <div class="panel-header-title"><span>Rekapitulasi Produksi Terkumpul</span></div>
+                <div class="panel-header-title"><span id="i18n_rightHeader">Rekapitulasi Produksi Terkumpul</span></div>
                 <div class="filter-controls-wrap">
                     <div class="filter-pill-group">
                         <button class="filter-pill-btn active" id="btnFilter7D" onclick="setHistoryFilter('7d')">7 Hari</button>
@@ -1085,26 +1122,26 @@ class AnalyticsServer:
 
             <!-- Baris Input Tanggal Kustom (Tersembunyi secara default, muncul saat klik Kustom) -->
             <div id="customDateRow" class="custom-date-bar" style="display: none;">
-                <span style="font-weight: 600; color: var(--text-muted);">Rentang Tanggal:</span>
+                <span id="i18n_lblDateRange" style="font-weight: 600; color: var(--text-muted);">Rentang Tanggal:</span>
                 <input type="date" id="customStartDate" class="input-date-clean">
-                <span style="color: var(--text-muted);">s/d</span>
+                <span id="i18n_lblDateTo" style="color: var(--text-muted);">s/d</span>
                 <input type="date" id="customEndDate" class="input-date-clean">
-                <button class="btn-filter-apply" onclick="applyCustomDateRange()">Terapkan Filter</button>
+                <button class="btn-filter-apply" id="i18n_btnApplyCustom" onclick="applyCustomDateRange()">Terapkan Filter</button>
             </div>
 
             <div class="panel-content">
                 <!-- 3 KPI Kumulatif -->
                 <div class="kpi-row">
                     <div class="kpi-card">
-                        <div class="kpi-label">Total Volume Cetak</div>
+                        <div class="kpi-label" id="i18n_kpiVol">Total Volume Cetak</div>
                         <div id="total_volume" class="kpi-val" style="color: #0284c7;">-</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Rata-Rata Tingkat Afkir</div>
+                        <div class="kpi-label" id="i18n_kpiNg">Rata-Rata Tingkat Afkir</div>
                         <div id="avg_ng" class="kpi-val" style="color: #dc2626;">-</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Total Batch Selesai</div>
+                        <div class="kpi-label" id="i18n_kpiBatch">Total Batch Selesai</div>
                         <div id="total_batch" class="kpi-val" style="color: #16a34a;">-</div>
                     </div>
                 </div>
@@ -1118,7 +1155,7 @@ class AnalyticsServer:
                         </div>
                     </div>
                     <div class="chart-box-clean">
-                        <div class="chart-title-sm">Distribusi 5 Produk Teratas</div>
+                        <div class="chart-title-sm" id="i18n_chartPieTitle">Distribusi 5 Produk Teratas</div>
                         <div class="chart-canvas-wrap">
                             <canvas id="chartPie"></canvas>
                         </div>
@@ -1128,7 +1165,7 @@ class AnalyticsServer:
                 <!-- Tabel Riwayat Batch Selesai dengan Tombol Ekspor CSV -->
                 <div class="table-box-clean">
                     <div class="table-header-sm">
-                        <span>Riwayat Batch Produksi Terkini</span>
+                        <span id="i18n_tblHeader">Riwayat Batch Produksi Terkini</span>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <a href="/api/v1/export-raw-csv?days=7" id="btnDownloadCsv" class="btn-download-csv" download="riwayat_produksi_mentah.csv" title="Unduh seluruh data riwayat dalam format CSV">Unduh Data Mentah (CSV)</a>
                             <span id="record_count" style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">-</span>
@@ -1138,16 +1175,17 @@ class AnalyticsServer:
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Waktu Selesai</th>
-                                    <th>Durasi</th>
-                                    <th>File Sumber</th>
-                                    <th>Total Data</th>
-                                    <th>Total Cetak</th>
-                                    <th>Tingkat Afkir</th>
+                                    <th id="i18n_thEnd">Waktu Selesai</th>
+                                    <th id="i18n_thDur">Durasi</th>
+                                    <th id="i18n_thSrc">File Sumber</th>
+                                    <th id="i18n_thTot">Total Data</th>
+                                    <th id="i18n_thPrt">Total Cetak</th>
+                                    <th id="i18n_thTotNg">Total NG</th>
+                                    <th id="i18n_thReprint">Reprint</th>
                                 </tr>
                             </thead>
                             <tbody id="table_body">
-                                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 14px;">Memuat data riwayat...</td></tr>
+                                <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 14px;">Memuat data riwayat...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1157,13 +1195,244 @@ class AnalyticsServer:
 
     </div>
 
-    <div class="footer-note">
+    <div class="footer-note" id="i18n_footerNote">
         PT Smartek Sistem Inovasi &copy; 2026 | Sistem Percetakan Batch & Kontrol Mutu Omega MX v2.0 | Tampilan Ruang Manajemen
     </div>
 
     <script>
         let lineChartInstance = null;
         let pieChartInstance = null;
+        let webLang = localStorage.getItem('omega_web_lang') || 'id';
+        let userOverrodeWebLang = Boolean(localStorage.getItem('omega_web_lang'));
+        let lastLivePayload = null;
+
+        const WEB_I18N = {
+            id: {
+                navTitle: "ANALISIS PRODUKSI OMEGA MX",
+                navDept: "RUANG MANAJEMEN",
+                btnFull: "Layar Penuh (F11)",
+                liveOnline: "LANGSUNG",
+                liveOffline: "TERPUTUS",
+                leftHeader: "Kondisi Lapangan Terkini",
+                leftBadge: "Telemetri Langsung - Siklus Aktif",
+                lblSysOpStatus: "Status Operasional Mesin",
+                stRunning: "BERJALAN",
+                stPaused: "DIJEDA",
+                stStopped: "BERHENTI",
+                stStandby: "SIAGA",
+                stOffline: "TERPUTUS",
+                lblWo: "Surat Perintah Kerja (SPK)",
+                lblSku: "Kode Produk (SKU)",
+                lblFile: "File Sumber Data",
+                lblOp: "Operator Bertugas",
+                lblStart: "Waktu Mulai Batch",
+                hwPrinter: "Kepala Cetak:",
+                hwS1: "Pemindai Sisi A:",
+                hwS2: "Pemindai Sisi B:",
+                hwModbus: "Modbus I/O:",
+                hwApi: "API Sistem Utama:",
+                hwConn: "Terhubung",
+                hwDisc: "Terputus",
+                hwActive: "Aktif",
+                hwStandby: "Siaga",
+                hwReady: "Siap",
+                batchProgress: "Kemajuan Batch",
+                gaugeSub: "KEMAJUAN",
+                boxDone: "Kardus Selesai",
+                lblRem: "Sisa:",
+                totOk: "TOTAL LOLOS",
+                totNg: "TOTAL AFKIR",
+                convQueue: "Antrean Konveyor",
+                inTransitFmt: "Dalam Lintasan: {n} Kardus",
+                nodeHead: "Kepala Cetak",
+                nodeScan: "Pemindai Ganda",
+                nodePush: "Pendorong (DO0)",
+                rightHeader: "Rekapitulasi Produksi Terkumpul",
+                f7d: "7 Hari",
+                f30d: "30 Hari",
+                fAll: "Semua",
+                fCustom: "Kustom",
+                lblDateRange: "Rentang Tanggal:",
+                lblDateTo: "s/d",
+                btnApplyCustom: "Terapkan Filter",
+                kpiVol: "Total Volume Cetak",
+                kpiNg: "Rata-Rata Tingkat Afkir",
+                kpiBatch: "Total Batch Selesai",
+                chartPieTitle: "Distribusi 5 Produk Teratas",
+                tblHeader: "Riwayat Batch Produksi Terkini",
+                btnDownloadCsv: "Unduh Data Mentah (CSV)",
+                thEnd: "Waktu Selesai",
+                thDur: "Durasi",
+                thSrc: "File Sumber",
+                thTot: "Total Data",
+                thPrt: "Total Cetak",
+                thTotNg: "Total NG",
+                thReprint: "Reprint",
+                footerNote: "PT Smartek Sistem Inovasi © 2026 | Sistem Percetakan Batch & Kontrol Mutu Omega MX v2.0 | Tampilan Ruang Manajemen",
+                db7d: "Basis Data: 7 Hari Terakhir",
+                db30d: "Basis Data: 30 Hari Terakhir",
+                dbAll: "Basis Data: Seluruh Riwayat",
+                dbCustom: "Basis Data: {s} s/d {e}",
+                tr7d: "Tren Produksi Harian (7 Hari Terakhir)",
+                tr30d: "Tren Produksi Harian (30 Hari Terakhir)",
+                trAll: "Tren Produksi Harian (Seluruh Data)",
+                trCustom: "Tren Produksi Harian ({s} s/d {e})",
+                noData: "Tidak Ada Data",
+                volLabel: "Volume Cetak",
+                emptyHist: "Belum ada riwayat batch produksi tercatat.",
+                emptyRange: "Tidak ada riwayat batch produksi pada rentang tanggal ini.",
+                ngSuffix: "Afkir"
+            },
+            en: {
+                navTitle: "OMEGA MX PRODUCTION ANALYTICS",
+                navDept: "MANAGEMENT ROOM",
+                btnFull: "Full Screen (F11)",
+                liveOnline: "LIVE",
+                liveOffline: "OFFLINE",
+                leftHeader: "Live Field Telemetry",
+                leftBadge: "Live Telemetry - Active Cycle",
+                lblSysOpStatus: "Machine Operational Status",
+                stRunning: "RUNNING",
+                stPaused: "PAUSED",
+                stStopped: "STOPPED",
+                stStandby: "STANDBY",
+                stOffline: "OFFLINE",
+                lblWo: "Work Order (WO)",
+                lblSku: "Product Code (SKU)",
+                lblFile: "Source Data File",
+                lblOp: "Operator on Duty",
+                lblStart: "Batch Start Time",
+                hwPrinter: "Print Head:",
+                hwS1: "Scanner Side A:",
+                hwS2: "Scanner Side B:",
+                hwModbus: "Modbus I/O:",
+                hwApi: "Upstream API:",
+                hwConn: "Connected",
+                hwDisc: "Disconnected",
+                hwActive: "Active",
+                hwStandby: "Standby",
+                hwReady: "Ready",
+                batchProgress: "Batch Progress",
+                gaugeSub: "PROGRESS",
+                boxDone: "Boxes Completed",
+                lblRem: "Rem:",
+                totOk: "TOTAL PASSED (OK)",
+                totNg: "TOTAL REJECTED (NG)",
+                convQueue: "Conveyor Queue",
+                inTransitFmt: "In Transit: {n} Boxes",
+                nodeHead: "Print Head",
+                nodeScan: "Dual Scanner",
+                nodePush: "Pusher (DO0)",
+                rightHeader: "Cumulative Production Summary",
+                f7d: "7 Days",
+                f30d: "30 Days",
+                fAll: "All",
+                fCustom: "Custom",
+                lblDateRange: "Date Range:",
+                lblDateTo: "to",
+                btnApplyCustom: "Apply Filter",
+                kpiVol: "Total Print Volume",
+                kpiNg: "Average Reject Rate",
+                kpiBatch: "Total Completed Batches",
+                chartPieTitle: "Top 5 Products Distribution",
+                tblHeader: "Recent Production Batch History",
+                btnDownloadCsv: "Download Raw Data (CSV)",
+                thEnd: "End Time",
+                thDur: "Duration",
+                thSrc: "Source File",
+                thTot: "Total Data",
+                thPrt: "Total Print",
+                thTotNg: "Total NG",
+                thReprint: "Reprint",
+                footerNote: "PT Smartek Sistem Inovasi © 2026 | Omega MX Batch Printing & Quality Control System v2.0 | Management Room View",
+                db7d: "Dataset: Last 7 Days",
+                db30d: "Dataset: Last 30 Days",
+                dbAll: "Dataset: All History",
+                dbCustom: "Dataset: {s} to {e}",
+                tr7d: "Daily Production Trend (Last 7 Days)",
+                tr30d: "Daily Production Trend (Last 30 Days)",
+                trAll: "Daily Production Trend (All Data)",
+                trCustom: "Daily Production Trend ({s} to {e})",
+                noData: "No Data",
+                volLabel: "Print Volume",
+                emptyHist: "No production batch history recorded yet.",
+                emptyRange: "No production batch history in this date range.",
+                ngSuffix: "NG"
+            }
+        };
+
+        function wtr(key) {
+            const d = WEB_I18N[webLang] || WEB_I18N.id;
+            return d[key] || key;
+        }
+
+        function setWebLang(lang, isManual = true) {
+            if (lang !== 'id' && lang !== 'en') return;
+            webLang = lang;
+            if (isManual) {
+                userOverrodeWebLang = true;
+                localStorage.setItem('omega_web_lang', lang);
+            }
+            document.getElementById('btnWebLangId').classList.toggle('active', lang === 'id');
+            document.getElementById('btnWebLangEn').classList.toggle('active', lang === 'en');
+
+            const mapIds = {
+                i18n_navTitle: 'navTitle',
+                i18n_navDept: 'navDept',
+                i18n_btnFull: 'btnFull',
+                i18n_leftHeader: 'leftHeader',
+                i18n_leftBadge: 'leftBadge',
+                i18n_lblSysOpStatus: 'lblSysOpStatus',
+                i18n_lblWo: 'lblWo',
+                i18n_lblSku: 'lblSku',
+                i18n_lblFile: 'lblFile',
+                i18n_lblOp: 'lblOp',
+                i18n_lblStart: 'lblStart',
+                i18n_hwPrinter: 'hwPrinter',
+                i18n_hwS1: 'hwS1',
+                i18n_hwS2: 'hwS2',
+                i18n_hwModbus: 'hwModbus',
+                i18n_hwApi: 'hwApi',
+                i18n_batchProgress: 'batchProgress',
+                i18n_gaugeSub: 'gaugeSub',
+                i18n_boxDone: 'boxDone',
+                i18n_lblRem: 'lblRem',
+                i18n_totOk: 'totOk',
+                i18n_totNg: 'totNg',
+                i18n_convQueue: 'convQueue',
+                i18n_nodeHead: 'nodeHead',
+                i18n_nodeScan: 'nodeScan',
+                i18n_nodePush: 'nodePush',
+                i18n_rightHeader: 'rightHeader',
+                btnFilter7D: 'f7d',
+                btnFilter30D: 'f30d',
+                btnFilterAll: 'fAll',
+                btnFilterCustom: 'fCustom',
+                i18n_lblDateRange: 'lblDateRange',
+                i18n_lblDateTo: 'lblDateTo',
+                i18n_btnApplyCustom: 'btnApplyCustom',
+                i18n_kpiVol: 'kpiVol',
+                i18n_kpiNg: 'kpiNg',
+                i18n_kpiBatch: 'kpiBatch',
+                i18n_chartPieTitle: 'chartPieTitle',
+                i18n_tblHeader: 'tblHeader',
+                btnDownloadCsv: 'btnDownloadCsv',
+                i18n_thEnd: 'thEnd',
+                i18n_thDur: 'thDur',
+                i18n_thSrc: 'thSrc',
+                i18n_thTot: 'thTot',
+                i18n_thPrt: 'thPrt',
+                i18n_thTotNg: 'thTotNg',
+                i18n_thReprint: 'thReprint',
+                i18n_footerNote: 'footerNote'
+            };
+            for (const [elId, k] of Object.entries(mapIds)) {
+                const el = document.getElementById(elId);
+                if (el) el.innerText = wtr(k);
+            }
+            if (lastLivePayload) renderLivePayload(lastLivePayload);
+            renderFilteredHistory();
+        }
 
         // Beralih Layar Penuh
         function toggleFullScreen() {
@@ -1189,143 +1458,139 @@ class AnalyticsServer:
         setInterval(updateClock, 1000);
         updateClock();
 
+        function renderLivePayload(s) {
+            // Indikator Langsung
+            document.getElementById('badgeLive').className = 'badge-live';
+            document.getElementById('dotLive').className = 'dot-status dot-green';
+            document.getElementById('textLive').innerText = wtr('liveOnline');
+
+            // Status Mesin
+            const rawStatus = (s.system_status || 'READY').toUpperCase();
+            const pill = document.getElementById('statusPill');
+            const pDot = document.getElementById('statusDot');
+            const pTitle = document.getElementById('statusTitle');
+
+            if (rawStatus === 'RUNNING') {
+                pill.className = 'status-pill pill-running';
+                pDot.className = 'dot-status dot-green';
+                pTitle.innerText = wtr('stRunning');
+            } else if (rawStatus === 'PAUSED') {
+                pill.className = 'status-pill pill-paused';
+                pDot.className = 'dot-status dot-amber';
+                pTitle.innerText = wtr('stPaused');
+            } else if (rawStatus === 'STOPPED' || rawStatus === 'ALARM') {
+                pill.className = 'status-pill pill-stopped';
+                pDot.className = 'dot-status dot-red';
+                pTitle.innerText = wtr('stStopped');
+            } else {
+                pill.className = 'status-pill pill-standby';
+                pDot.className = 'dot-status dot-amber';
+                pTitle.innerText = wtr('stStandby');
+            }
+
+            // Metadata Batch Aktif
+            document.getElementById('val_wo').innerText = s.current_work_order || '-';
+            document.getElementById('val_sku').innerText = s.current_sku || '-';
+            document.getElementById('val_file').innerText = s.current_file || '-';
+            document.getElementById('val_operator').innerText = s.operator || 'admin';
+            document.getElementById('val_start').innerText = s.batch_start_time || '-';
+
+            // Status Koneksi Perangkat
+            const hw = s.hardware || {};
+            function setHw(idText, isOnline) {
+                const txt = document.getElementById(idText);
+                if (isOnline) {
+                    txt.className = 'hw-val-online';
+                    txt.innerText = wtr('hwConn');
+                } else {
+                    txt.className = 'hw-val-offline';
+                    txt.innerText = wtr('hwDisc');
+                }
+            }
+            setHw('hw_printer_text', hw.printer_online);
+            setHw('hw_s1_text', hw.scanner1_online);
+            setHw('hw_s2_text', hw.scanner2_online);
+            
+            // Modbus I/O
+            const txtM = document.getElementById('hw_modbus_text');
+            if (hw.modbus_online) {
+                txtM.className = 'hw-val-online';
+                txtM.innerText = wtr('hwActive');
+            } else {
+                txtM.className = 'hw-val-offline';
+                txtM.innerText = wtr('hwStandby');
+            }
+
+            // API Sistem Utama
+            const txtApi = document.getElementById('hw_api_text');
+            if (hw.upstream_api_online) {
+                txtApi.className = 'hw-val-online';
+                txtApi.innerText = wtr('hwConn');
+            } else {
+                txtApi.className = 'hw-val-offline';
+                txtApi.innerText = wtr('hwReady');
+            }
+
+            // Kartu Kemajuan Batch
+            const p = s.progress || {};
+            const cycleNum = p.print_cycle || 1;
+            const elBpTitle = document.getElementById('i18n_batchProgress');
+            if (elBpTitle) {
+                elBpTitle.innerText = cycleNum > 1
+                    ? `${wtr('batchProgress')} (Reprint #${cycleNum - 1})`
+                    : wtr('batchProgress');
+            }
+            const target = p.total_target || 0;
+            const judged = p.judged || 0;
+            const sisa = p.sisa !== undefined ? p.sisa : Math.max(0, target - judged);
+            const pct = p.progress_percent !== undefined ? p.progress_percent : (target > 0 ? ((judged/target)*100).toFixed(1) : 0);
+
+            document.getElementById('gaugeJudged').innerText = judged;
+            document.getElementById('gaugeTotal').innerText = target;
+            document.getElementById('gaugeSisa').innerText = sisa;
+            document.getElementById('gaugePct').innerText = pct + '%';
+
+            const maxDash = 220;
+            const offset = maxDash - Math.min(100, Math.max(0, pct)) * (maxDash / 100);
+            const gPath = document.getElementById('gaugePath');
+            gPath.style.strokeDashoffset = offset;
+            if (pct >= 100) {
+                gPath.setAttribute('stroke', '#16a34a');
+            } else if (rawStatus === 'RUNNING') {
+                gPath.setAttribute('stroke', '#0284c7');
+            } else {
+                gPath.setAttribute('stroke', '#94a3b8');
+            }
+
+            // Total Lolos & Afkir
+            const okCnt = p.count_ok || 0;
+            const ngCnt = p.count_ng || 0;
+            document.getElementById('countOk').innerText = okCnt;
+            document.getElementById('countNg').innerText = ngCnt;
+        }
+
         // 1. POLLING STATUS LANGSUNG DARI LAPANGAN (Setiap 1.5 detik)
         async function pollLiveStatus() {
             try {
                 const res = await fetch('/api/v1/status');
                 if (!res.ok) throw new Error("HTTP " + res.status);
                 const s = await res.json();
-
-                // Indikator Langsung
-                document.getElementById('badgeLive').className = 'badge-live';
-                document.getElementById('dotLive').className = 'dot-status dot-green';
-                document.getElementById('textLive').innerText = 'LANGSUNG';
-
-                // Status Mesin (Bahasa Indonesia Baku)
-                const rawStatus = (s.system_status || 'READY').toUpperCase();
-                const pill = document.getElementById('statusPill');
-                const pDot = document.getElementById('statusDot');
-                const pTitle = document.getElementById('statusTitle');
-
-                if (rawStatus === 'RUNNING') {
-                    pill.className = 'status-pill pill-running';
-                    pDot.className = 'dot-status dot-green';
-                    pTitle.innerText = 'BERJALAN';
-                } else if (rawStatus === 'PAUSED') {
-                    pill.className = 'status-pill pill-paused';
-                    pDot.className = 'dot-status dot-amber';
-                    pTitle.innerText = 'DIJEDA';
-                } else if (rawStatus === 'STOPPED' || rawStatus === 'ALARM') {
-                    pill.className = 'status-pill pill-stopped';
-                    pDot.className = 'dot-status dot-red';
-                    pTitle.innerText = 'BERHENTI';
-                } else {
-                    pill.className = 'status-pill pill-standby';
-                    pDot.className = 'dot-status dot-amber';
-                    pTitle.innerText = 'SIAGA';
+                lastLivePayload = s;
+                if (!userOverrodeWebLang && (s.language === 'id' || s.language === 'en') && s.language !== webLang) {
+                    setWebLang(s.language, false);
+                    return;
                 }
-
-                // Metadata Batch Aktif
-                document.getElementById('val_wo').innerText = s.current_work_order || '-';
-                document.getElementById('val_sku').innerText = s.current_sku || '-';
-                document.getElementById('val_file').innerText = s.current_file || '-';
-                document.getElementById('val_operator').innerText = s.operator || 'admin';
-                document.getElementById('val_start').innerText = s.batch_start_time || '-';
-
-                // Status Koneksi Perangkat
-                const hw = s.hardware || {};
-                function setHw(idText, isOnline) {
-                    const txt = document.getElementById(idText);
-                    if (isOnline) {
-                        txt.className = 'hw-val-online';
-                        txt.innerText = 'Terhubung';
-                    } else {
-                        txt.className = 'hw-val-offline';
-                        txt.innerText = 'Terputus';
-                    }
-                }
-                setHw('hw_printer_text', hw.printer_online);
-                setHw('hw_s1_text', hw.scanner1_online);
-                setHw('hw_s2_text', hw.scanner2_online);
-                
-                // Modbus I/O
-                const txtM = document.getElementById('hw_modbus_text');
-                if (hw.modbus_online) {
-                    txtM.className = 'hw-val-online';
-                    txtM.innerText = 'Aktif';
-                } else {
-                    txtM.className = 'hw-val-offline';
-                    txtM.innerText = 'Siaga';
-                }
-
-                // API Sistem Utama
-                const txtApi = document.getElementById('hw_api_text');
-                if (hw.upstream_api_online) {
-                    txtApi.className = 'hw-val-online';
-                    txtApi.innerText = 'Terhubung';
-                } else {
-                    txtApi.className = 'hw-val-offline';
-                    txtApi.innerText = 'Siap';
-                }
-
-                // Kartu Kemajuan Batch
-                const p = s.progress || {};
-                const target = p.total_target || 0;
-                const judged = p.judged || 0;
-                const sisa = p.sisa !== undefined ? p.sisa : Math.max(0, target - judged);
-                const pct = p.progress_percent !== undefined ? p.progress_percent : (target > 0 ? ((judged/target)*100).toFixed(1) : 0);
-
-                document.getElementById('gaugeJudged').innerText = judged;
-                document.getElementById('gaugeTotal').innerText = target;
-                document.getElementById('gaugeSisa').innerText = sisa;
-                document.getElementById('gaugePct').innerText = pct + '%';
-
-                const maxDash = 220;
-                const offset = maxDash - Math.min(100, Math.max(0, pct)) * (maxDash / 100);
-                const gPath = document.getElementById('gaugePath');
-                gPath.style.strokeDashoffset = offset;
-                if (pct >= 100) {
-                    gPath.setAttribute('stroke', '#16a34a');
-                } else if (rawStatus === 'RUNNING') {
-                    gPath.setAttribute('stroke', '#0284c7');
-                } else {
-                    gPath.setAttribute('stroke', '#94a3b8');
-                }
-
-                // Total Lolos & Afkir
-                const okCnt = p.count_ok || 0;
-                const ngCnt = p.count_ng || 0;
-                document.getElementById('countOk').innerText = okCnt;
-                document.getElementById('countNg').innerText = ngCnt;
-
-                // Antrean Konveyor Dalam Lintasan
-                const inTransit = p.in_transit || 0;
-                document.getElementById('badgeTransit').innerText = `Dalam Lintasan: ${inTransit} Kardus`;
-
-                const nodeHp = document.getElementById('nodeHeadPrint');
-                const nodeScan = document.getElementById('nodeScanner');
-                const nodePush = document.getElementById('nodePusher');
-
-                if (inTransit > 0) {
-                    nodeHp.className = 'node-circle-clean active';
-                    nodeScan.className = 'node-circle-clean active';
-                    nodePush.className = (ngCnt > 0) ? 'node-circle-clean active' : 'node-circle-clean';
-                } else {
-                    nodeHp.className = 'node-circle-clean';
-                    nodeScan.className = 'node-circle-clean';
-                    nodePush.className = 'node-circle-clean';
-                }
-
+                renderLivePayload(s);
             } catch (err) {
                 // Saat HMI Terputus
                 document.getElementById('badgeLive').className = 'badge-live';
                 document.getElementById('dotLive').className = 'dot-status dot-gray';
-                document.getElementById('textLive').innerText = 'TERPUTUS';
+                document.getElementById('textLive').innerText = wtr('liveOffline');
 
                 const pill = document.getElementById('statusPill');
                 pill.className = 'status-pill pill-offline';
                 document.getElementById('statusDot').className = 'dot-status dot-gray';
-                document.getElementById('statusTitle').innerText = 'TERPUTUS';
+                document.getElementById('statusTitle').innerText = wtr('stOffline');
             }
         }
 
@@ -1416,7 +1681,7 @@ class AnalyticsServer:
                 document.getElementById('avg_ng').innerText = "0.0";
                 document.getElementById('total_batch').innerText = "0";
                 document.getElementById('record_count').innerText = "0 Batch";
-                document.getElementById('table_body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 14px;">Belum ada riwayat batch produksi tercatat.</td></tr>';
+                document.getElementById('table_body').innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 14px;">${wtr('emptyHist')}</td></tr>`;
                 return;
             }
 
@@ -1432,29 +1697,29 @@ class AnalyticsServer:
                 past7.setDate(now.getDate() - 7);
                 const cutoff = toIsoDate(past7);
                 filtered = rawHistoryData.filter(i => (i.Waktu_Selesai || "").split(' ')[0] >= cutoff);
-                badgeText = "Basis Data: 7 Hari Terakhir";
-                chartTitleText = "Tren Produksi Harian (7 Hari Terakhir)";
+                badgeText = wtr('db7d');
+                chartTitleText = wtr('tr7d');
                 exportUrl = "/api/v1/export-raw-csv?days=7";
             } else if (currentFilterMode === '30d') {
                 const past30 = new Date();
                 past30.setDate(now.getDate() - 30);
                 const cutoff = toIsoDate(past30);
                 filtered = rawHistoryData.filter(i => (i.Waktu_Selesai || "").split(' ')[0] >= cutoff);
-                badgeText = "Basis Data: 30 Hari Terakhir";
-                chartTitleText = "Tren Produksi Harian (30 Hari Terakhir)";
+                badgeText = wtr('db30d');
+                chartTitleText = wtr('tr30d');
                 exportUrl = "/api/v1/export-raw-csv?days=30";
             } else if (currentFilterMode === 'custom') {
                 filtered = rawHistoryData.filter(i => {
                     const d = (i.Waktu_Selesai || "").split(' ')[0];
                     return d >= customStartVal && d <= customEndVal;
                 });
-                badgeText = `Basis Data: ${customStartVal} s/d ${customEndVal}`;
-                chartTitleText = `Tren Produksi Harian (${customStartVal} s/d ${customEndVal})`;
+                badgeText = wtr('dbCustom').replace('{s}', customStartVal).replace('{e}', customEndVal);
+                chartTitleText = wtr('trCustom').replace('{s}', customStartVal).replace('{e}', customEndVal);
                 exportUrl = `/api/v1/export-raw-csv?start_date=${encodeURIComponent(customStartVal)}&end_date=${encodeURIComponent(customEndVal)}`;
             } else { // 'all'
                 filtered = [...rawHistoryData];
-                badgeText = "Basis Data: Seluruh Riwayat";
-                chartTitleText = "Tren Produksi Harian (Seluruh Data)";
+                badgeText = wtr('dbAll');
+                chartTitleText = wtr('trAll');
                 exportUrl = "/api/v1/export-raw-csv";
             }
 
@@ -1468,7 +1733,7 @@ class AnalyticsServer:
 
             // Update KPI Kumulatif
             const totalVol = filtered.reduce((s, i) => s + (parseInt(i.Total_Print) || 0), 0);
-            const totalNG = filtered.reduce((s, i) => s + (parseInt(i.NG_Level) || 0), 0);
+            const totalNG = filtered.reduce((s, i) => s + (parseInt(i.Total_NG) || 0), 0);
             const avgNG = filtered.length > 0 ? (totalNG / filtered.length).toFixed(2) : "0.0";
 
             document.getElementById('total_volume').innerText = totalVol.toLocaleString();
@@ -1484,9 +1749,9 @@ class AnalyticsServer:
             lineChartInstance = new Chart(document.getElementById('chartLine'), {
                 type: 'line',
                 data: {
-                    labels: dates.length ? dates : ['Tidak Ada Data'],
+                    labels: dates.length ? dates : [wtr('noData')],
                     datasets: [{
-                        label: 'Volume Cetak',
+                        label: wtr('volLabel'),
                         data: volData.length ? volData : [0],
                         borderColor: '#0284c7',
                         backgroundColor: 'rgba(2, 132, 199, 0.08)',
@@ -1511,7 +1776,7 @@ class AnalyticsServer:
             // Grafik Donat SKU Terfilter
             const skus = {};
             filtered.forEach(i => {
-                const src = i.Source || "Lainnya";
+                const src = i.Source || "Other";
                 skus[src] = (skus[src] || 0) + (parseInt(i.Total_Print) || 0);
             });
             const topSkus = Object.entries(skus).sort((a,b) => b[1]-a[1]).slice(0, 5);
@@ -1520,7 +1785,7 @@ class AnalyticsServer:
             pieChartInstance = new Chart(document.getElementById('chartPie'), {
                 type: 'doughnut',
                 data: {
-                    labels: topSkus.length ? topSkus.map(i => i[0]) : ['Tidak Ada Data'],
+                    labels: topSkus.length ? topSkus.map(i => i[0]) : [wtr('noData')],
                     datasets: [{
                         data: topSkus.length ? topSkus.map(i => i[1]) : [1],
                         backgroundColor: topSkus.length ? ['#16a34a', '#eab308', '#ea580c', '#dc2626', '#8b5cf6'] : ['#e2e8f0'],
@@ -1558,28 +1823,34 @@ class AnalyticsServer:
 
             // Tabel Data Riwayat Terkini Terfilter
             if (filtered.length === 0) {
-                document.getElementById('table_body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 14px;">Tidak ada riwayat batch produksi pada rentang tanggal ini.</td></tr>';
+                document.getElementById('table_body').innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 14px;">${wtr('emptyRange')}</td></tr>`;
             } else {
                 const recent = [...filtered].reverse().slice(0, 12);
                 const rows = recent.map(r => {
-                    const ngVal = parseInt(r.NG_Level) || 0;
-                    const ngBadge = ngVal > 0 
-                        ? `<span class="tag-ng-clean">${escapeHtml(r.NG_Level)} Afkir</span>` 
-                        : `<span class="tag-ok-clean">0 Afkir</span>`;
+                    const totNgVal = parseInt(r.Total_NG) || 0;
+                    const reprintVal = parseInt(r.NG_Level) || 0;
+                    const totNgBadge = totNgVal > 0 
+                        ? `<span class="tag-ng-clean">${totNgVal} NG</span>` 
+                        : `<span class="tag-ok-clean">0 NG</span>`;
+                    const reprintBadge = reprintVal > 0
+                        ? `<span class="tag-reprint-clean">${reprintVal}x</span>`
+                        : `<span class="tag-zero-clean">0</span>`;
                     return `<tr>
                         <td>${escapeHtml(r.Waktu_Selesai)}</td>
                         <td>${escapeHtml(r.Durasi)}</td>
                         <td title="${escapeHtml(r.Source)}"><b>${escapeHtml(r.Source.length > 25 ? r.Source.substring(0,23) + '..' : r.Source)}</b></td>
                         <td>${parseInt(r.Total_Data) || 0}</td>
                         <td>${parseInt(r.Total_Print) || 0}</td>
-                        <td>${ngBadge}</td>
+                        <td>${totNgBadge}</td>
+                        <td>${reprintBadge}</td>
                     </tr>`;
                 }).join('');
                 document.getElementById('table_body').innerHTML = rows;
             }
         }
 
-        // Inisialisasi & Interval Polling
+        // Inisialisasi bahasa & Interval Polling
+        setWebLang(webLang, false);
         pollLiveStatus();
         setInterval(pollLiveStatus, 1500);
 

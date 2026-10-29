@@ -96,7 +96,7 @@ class DataManager:
 
             if df.empty:
                 # Tulis file kosong dengan header
-                headers = ["Waktu_Mulai", "Waktu_Selesai", "Durasi", "Source", "Total_Data", "Total_Print", "NG_Level", "Report_File"]
+                headers = ["Waktu_Mulai", "Waktu_Selesai", "Durasi", "Source", "Total_Data", "Total_Print", "Total_NG", "NG_Level", "Report_File"]
                 pd.DataFrame(columns=headers).to_csv(target_filepath, index=False, encoding='utf-8')
             else:
                 df.to_csv(target_filepath, index=False, encoding='utf-8')
@@ -151,6 +151,9 @@ class DataManager:
             
         try:
             df = pd.read_csv(self.history_log_file)
+            if "Total_NG" not in df.columns:
+                idx_col = df.columns.get_loc("NG_Level") if "NG_Level" in df.columns else len(df.columns)
+                df.insert(idx_col, "Total_NG", 0)
             df = df.sort_values(by="Waktu_Selesai", ascending=False) 
             
             if filter_val == "last_20":
@@ -239,6 +242,10 @@ class DataManager:
             jam, sisa = divmod(int(selisih_waktu.total_seconds()), 3600)
             menit, detik = divmod(sisa, 60)
             durasi_str = f"{jam:02d}:{menit:02d}:{detik:02d}"
+
+            # Hitung Total NG akhir yang TIDAK di-reprint (berdasarkan siklus cetak terakhir)
+            df_last_cycle = df_history[df_history['Cycle'] == print_cycle]
+            total_ng_unreprinted = int(len(df_last_cycle[df_last_cycle['Status'] != 'OK']))
             
             new_log = pd.DataFrame([{
                 "Waktu_Mulai": batch_start_time, 
@@ -247,11 +254,20 @@ class DataManager:
                 "Source": clean_source, 
                 "Total_Data": total_load_data, 
                 "Total_Print": len(df_history), 
+                "Total_NG": total_ng_unreprinted,
                 "NG_Level": print_cycle - 1,
                 "Report_File": relative_report_path
             }])
             
             if os.path.exists(self.history_log_file):
+                try:
+                    existing_df = pd.read_csv(self.history_log_file)
+                    if "Total_NG" not in existing_df.columns:
+                        idx_col = existing_df.columns.get_loc("NG_Level") if "NG_Level" in existing_df.columns else len(existing_df.columns)
+                        existing_df.insert(idx_col, "Total_NG", 0)
+                        existing_df.to_csv(self.history_log_file, index=False)
+                except Exception:
+                    pass
                 new_log.to_csv(self.history_log_file, mode='a', header=False, index=False)
             else:
                 new_log.to_csv(self.history_log_file, index=False)

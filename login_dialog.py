@@ -3,6 +3,7 @@ import sys
 import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
+from i18n import i18n, tr
 
 def resource_path(relative_path):
     try:
@@ -14,7 +15,7 @@ def resource_path(relative_path):
 class LoginDialog:
     """
     Jendela dialog login modern untuk Omega MX System.
-    Mendukung login awal dan Switch User saat aplikasi sedang berjalan.
+    Mendukung login awal, Switch User, dan pemilihan bahasa (ID / EN) langsung di dialog.
     """
     def __init__(self, parent, auth_manager, on_login_success=None, is_switch_user=False):
         self.parent = parent
@@ -24,10 +25,10 @@ class LoginDialog:
         self.login_result = None
 
         self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Omega MX - Login Akses Pengguna")
-        self.dialog.geometry("380x370")
+        self.dialog.withdraw()
+        self.dialog.title(tr("login_win_title"))
         self.dialog.resizable(False, False)
-        self.dialog.configure(bg="#f0f0f0")
+        self.dialog.configure(bg="#f1f5f9")
 
         # Set Icon jika tersedia
         try:
@@ -37,43 +38,49 @@ class LoginDialog:
         except Exception:
             pass
 
-        # Modal behavior
-        if self.is_switch_user:
-            self.dialog.transient(parent)
-            self.dialog.grab_set()
-        else:
-            self.dialog.deiconify()
-            self.dialog.lift()
-            self.dialog.focus_force()
+        self.dialog.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
-        # Center dialog pada layar
+        self._build_ui()
+
+        # Center dialog pada layar sebelum ditampilkan agar tidak berkedip pindah posisi
         self.dialog.update_idletasks()
         screen_w = self.dialog.winfo_screenwidth()
         screen_h = self.dialog.winfo_screenheight()
-        dlg_w = 380
-        dlg_h = 370
+        dlg_w = 390
+        dlg_h = max(355, self.dialog.winfo_reqheight() + 10)
         x = max(0, int((screen_w - dlg_w) / 2))
         y = max(0, int((screen_h - dlg_h) / 2))
         self.dialog.geometry(f"{dlg_w}x{dlg_h}+{x}+{y}")
 
-        self.dialog.protocol("WM_DELETE_WINDOW", self.on_cancel)
+        # Tampilkan dialog setelah posisi & UI siap
+        self.dialog.deiconify()
+        self.dialog.lift()
+        self.dialog.focus_force()
 
-        self._build_ui()
+        if self.is_switch_user:
+            self.dialog.transient(parent)
+            self.dialog.grab_set()
+
         self.ent_password.focus_set()
 
     def _build_ui(self):
-        # Container dialog native Windows 7 (tanpa border biru / kotak terpisah)
-        container = tk.Frame(self.dialog, bg="#f0f0f0", padx=25, pady=18)
+        # Card Container Putih Bersih tanpa Header Hitam & tanpa Pilihan Bahasa
+        outer = tk.Frame(self.dialog, bg="#f1f5f9", padx=18, pady=18)
+        outer.pack(fill=tk.BOTH, expand=True)
+
+        container = tk.Frame(
+            outer, bg="#ffffff", padx=22, pady=20,
+            relief="flat", bd=0, highlightthickness=1, highlightbackground="#cbd5e1", highlightcolor="#cbd5e1"
+        )
         container.pack(fill=tk.BOTH, expand=True)
 
-        # Label Judul Dialog (Bahasa Indonesia Baku)
-        title_text = "Ganti Akun Pengguna" if self.is_switch_user else "Silakan Masuk ke Sistem"
-        lbl_form_title = tk.Label(container, text=title_text, font=("Segoe UI", 12, "bold"), fg="#1c446c", bg="#f0f0f0")
-        lbl_form_title.pack(anchor=tk.W, pady=(0, 14))
+        title_text = tr("login_hdr_switch") if self.is_switch_user else tr("login_hdr_initial")
+        self.lbl_form_title = tk.Label(container, text=title_text, font=("Segoe UI", 12, "bold"), fg="#0f172a", bg="#ffffff")
+        self.lbl_form_title.pack(anchor=tk.W, pady=(0, 14))
 
         # ID PENGGUNA (Dinamis dari basis data seluruh pengguna terdaftar)
-        lbl_user = tk.Label(container, text="ID Pengguna:", font=("Segoe UI", 9, "bold"), fg="#222222", bg="#f0f0f0")
-        lbl_user.pack(anchor=tk.W, pady=(0, 3))
+        self.lbl_user = tk.Label(container, text=tr("login_lbl_user"), font=("Segoe UI", 9, "bold"), fg="#334155", bg="#ffffff")
+        self.lbl_user.pack(anchor=tk.W, pady=(0, 4))
 
         registered_users = []
         try:
@@ -95,8 +102,8 @@ class LoginDialog:
         self.cb_user.bind("<<ComboboxSelected>>", lambda e: self.ent_password.focus_set())
 
         # KATA SANDI
-        lbl_pass = tk.Label(container, text="Kata Sandi:", font=("Segoe UI", 9, "bold"), fg="#222222", bg="#f0f0f0")
-        lbl_pass.pack(anchor=tk.W, pady=(0, 3))
+        self.lbl_pass = tk.Label(container, text=tr("login_lbl_pass"), font=("Segoe UI", 9, "bold"), fg="#334155", bg="#ffffff")
+        self.lbl_pass.pack(anchor=tk.W, pady=(0, 4))
 
         self.var_pass = tk.StringVar()
         self.ent_password = ttk.Entry(container, textvariable=self.var_pass, show="*", font=("Segoe UI", 9))
@@ -105,42 +112,43 @@ class LoginDialog:
 
         # TOGGLE SHOW/HIDE PASSWORD
         self.var_show_pass = tk.BooleanVar(value=False)
-        chk_show = tk.Checkbutton(container, text="Tampilkan Kata Sandi", variable=self.var_show_pass,
-                                  font=("Segoe UI", 8), bg="#f0f0f0", activebackground="#f0f0f0",
-                                  command=self._toggle_password_visibility)
-        chk_show.pack(anchor=tk.W, pady=(0, 4))
+        self.chk_show = ttk.Checkbutton(
+            container, text=tr("login_chk_show"), variable=self.var_show_pass,
+            command=self._toggle_password_visibility
+        )
+        self.chk_show.pack(anchor=tk.W, pady=(2, 4))
 
         # LABEL ERROR
-        self.lbl_error = tk.Label(container, text="", font=("Segoe UI", 8, "bold"), fg="#c0392b", bg="#f0f0f0")
+        self.lbl_error = tk.Label(container, text="", font=("Segoe UI", 8, "bold"), fg="#dc2626", bg="#ffffff")
         self.lbl_error.pack(fill=tk.X, pady=(0, 4))
 
-        # TOMBOL LOGIN (Windows 7 Aero Primary Button dengan Bevel 3D & Efek Glow)
-        btn_login = tk.Button(container, text="MASUK", font=("Segoe UI", 9, "bold"),
-                              bg="#246c9e", fg="#ffffff", activebackground="#318ac8", activeforeground="#ffffff",
-                              relief="raised", bd=1, highlightthickness=1, highlightbackground="#154970",
-                              cursor="hand2", pady=6, command=self.do_login)
-        btn_login.pack(fill=tk.X, pady=(0, 6))
+        # TOMBOL LOGIN (Flat Modern Primary Button)
+        self.btn_login = tk.Button(
+            container, text=tr("login_btn_submit"), font=("Segoe UI", 9, "bold"),
+            bg="#2563eb", fg="#ffffff", activebackground="#1d4ed8", activeforeground="#ffffff",
+            relief="flat", bd=0, cursor="hand2", pady=7, command=self.do_login
+        )
+        self.btn_login.pack(fill=tk.X, pady=(2, 6))
+        self.btn_login.bind("<Enter>", lambda e: self.btn_login.config(bg="#1d4ed8"))
+        self.btn_login.bind("<Leave>", lambda e: self.btn_login.config(bg="#2563eb"))
 
-        # Efek Hover Aero Glow pada Tombol Login
-        btn_login.bind("<Enter>", lambda e: btn_login.config(bg="#318ac8", highlightbackground="#48a6e8"))
-        btn_login.bind("<Leave>", lambda e: btn_login.config(bg="#246c9e", highlightbackground="#154970"))
+        # TOMBOL BATAL / KELUAR
+        cancel_text = tr("login_btn_cancel") if self.is_switch_user else tr("login_btn_exit")
+        self.btn_cancel = tk.Button(
+            container, text=cancel_text, font=("Segoe UI", 9, "bold"),
+            bg="#e2e8f0", fg="#334155", activebackground="#cbd5e1", activeforeground="#0f172a",
+            relief="flat", bd=0, cursor="hand2", pady=6, command=self.on_cancel
+        )
+        self.btn_cancel.pack(fill=tk.X, pady=(0, 10))
+        self.btn_cancel.bind("<Enter>", lambda e: self.btn_cancel.config(bg="#cbd5e1"))
+        self.btn_cancel.bind("<Leave>", lambda e: self.btn_cancel.config(bg="#e2e8f0"))
 
-        # TOMBOL BATAL / KELUAR (Windows 7 Classic Pushbutton)
-        cancel_text = "Batal" if self.is_switch_user else "Keluar dari Aplikasi"
-        btn_cancel = tk.Button(container, text=cancel_text, font=("Segoe UI", 9),
-                               bg="#e6e6e6", fg="#1a1a1a", activebackground="#dcdcdc", activeforeground="#000000",
-                               relief="raised", bd=1, highlightthickness=1, highlightbackground="#8c8c8c",
-                               cursor="hand2", pady=4, command=self.on_cancel)
-        btn_cancel.pack(fill=tk.X, pady=(0, 10))
-
-        # Efek Hover khas Windows 7 pada Tombol Standar
-        btn_cancel.bind("<Enter>", lambda e: btn_cancel.config(bg="#edf4fc", highlightbackground="#3c7fb1"))
-        btn_cancel.bind("<Leave>", lambda e: btn_cancel.config(bg="#e6e6e6", highlightbackground="#8c8c8c"))
-
-        # SYSTEM SECURITY NOTICE (Ditempatkan rapi di dalam container, tidak terpotong)
-        lbl_hint = tk.Label(container, text="Sistem Terproteksi | Hubungi Supervisor untuk Hak Akses",
-                            font=("Segoe UI", 8), fg="#777777", bg="#f0f0f0")
-        lbl_hint.pack(anchor=tk.CENTER)
+        # SYSTEM SECURITY NOTICE
+        self.lbl_hint = tk.Label(
+            container, text=tr("login_security_hint"),
+            font=("Segoe UI", 8), fg="#94a3b8", bg="#ffffff"
+        )
+        self.lbl_hint.pack(anchor=tk.CENTER)
 
     def _toggle_password_visibility(self):
         if self.var_show_pass.get():
@@ -153,11 +161,11 @@ class LoginDialog:
         password = self.var_pass.get().strip()
 
         if not username:
-            self.lbl_error.config(text="ID Pengguna tidak boleh kosong.")
+            self.lbl_error.config(text=tr("login_err_empty_user"))
             return
 
         if not password:
-            self.lbl_error.config(text="Kata sandi tidak boleh kosong.")
+            self.lbl_error.config(text=tr("login_err_empty_pass"))
             self.ent_password.focus_set()
             return
 
@@ -176,7 +184,6 @@ class LoginDialog:
         self.login_result = None
         self.dialog.destroy()
         if not self.is_switch_user:
-            # Jika login awal dibatalkan, keluar total dari aplikasi
             self.parent.destroy()
             sys.exit()
 
@@ -184,7 +191,7 @@ class LoginDialog:
 class ChangePasswordDialog:
     """
     Dialog untuk mengubah password pengguna yang sedang login,
-    atau Admin mereset password akun lain.
+    atau Admin mereset password akun lain (Mendukung Bahasa ID / EN).
     """
     def __init__(self, parent, auth_manager, current_user_info):
         self.parent = parent
@@ -192,10 +199,10 @@ class ChangePasswordDialog:
         self.current_user = current_user_info
 
         self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Ubah Password - Omega MX")
-        self.dialog.geometry("380x360")
+        self.dialog.title(tr("chg_win_title"))
+        self.dialog.geometry("390x360")
         self.dialog.resizable(False, False)
-        self.dialog.configure(bg="#f0f0f0")
+        self.dialog.configure(bg="#f1f5f9")
 
         self.dialog.transient(parent)
         self.dialog.grab_set()
@@ -204,65 +211,65 @@ class ChangePasswordDialog:
         self.dialog.update_idletasks()
         sw = self.dialog.winfo_screenwidth()
         sh = self.dialog.winfo_screenheight()
-        x = max(0, int((sw - 380) / 2))
+        x = max(0, int((sw - 390) / 2))
         y = max(0, int((sh - 360) / 2))
-        self.dialog.geometry(f"380x360+{x}+{y}")
+        self.dialog.geometry(f"390x360+{x}+{y}")
 
         self._build_ui()
 
     def _build_ui(self):
-        lbl_t = tk.Label(self.dialog, text="Ganti Password Akun", font=("Segoe UI", 12, "bold"), fg="#1c446c", bg="#f0f0f0")
-        lbl_t.pack(pady=(15, 10))
+        lbl_t = tk.Label(self.dialog, text=tr("chg_hdr"), font=("Segoe UI", 12, "bold"), fg="#0f172a", bg="#f1f5f9")
+        lbl_t.pack(pady=(14, 10))
 
-        frame = tk.Frame(self.dialog, bg="#ffffff", padx=20, pady=15, highlightthickness=1, highlightbackground="#aec3db")
-        frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 15))
+        frame = tk.Frame(self.dialog, bg="#ffffff", padx=20, pady=16, relief="flat", bd=0, highlightthickness=1, highlightbackground="#cbd5e1")
+        frame.pack(fill=tk.BOTH, expand=True, padx=18, pady=(0, 16))
 
         is_admin = self.current_user.get("role") == "admin"
 
-        # Target user selection jika admin
         row = 0
         if is_admin:
-            tk.Label(frame, text="Pilih Akun:", font=("Segoe UI", 9, "bold"), fg="#24476b", bg="#ffffff").grid(row=row, column=0, sticky="w", pady=4)
+            tk.Label(frame, text=tr("chg_lbl_account"), font=("Segoe UI", 9, "bold"), fg="#334155", bg="#ffffff").grid(row=row, column=0, sticky="w", pady=5)
             self.var_target_user = tk.StringVar(value=self.current_user.get("username"))
             user_list = [u["username"] for u in self.auth_manager.get_user_list()]
             cb = ttk.Combobox(frame, textvariable=self.var_target_user, values=user_list, state="readonly", width=18, font=("Segoe UI", 9))
-            cb.grid(row=row, column=1, sticky="w", pady=4)
+            cb.grid(row=row, column=1, sticky="w", pady=5)
             row += 1
         else:
             self.var_target_user = tk.StringVar(value=self.current_user.get("username"))
 
-        # Password Lama (hanya wajib jika mengubah akun sendiri dan bukan bypass admin)
-        tk.Label(frame, text="Password Lama:", font=("Segoe UI", 9), fg="#24476b", bg="#ffffff").grid(row=row, column=0, sticky="w", pady=4)
+        # Password Lama
+        tk.Label(frame, text=tr("chg_lbl_old"), font=("Segoe UI", 9), fg="#334155", bg="#ffffff").grid(row=row, column=0, sticky="w", pady=5)
         self.var_old_pass = tk.StringVar()
         self.ent_old = ttk.Entry(frame, textvariable=self.var_old_pass, show="*", width=20, font=("Segoe UI", 9))
-        self.ent_old.grid(row=row, column=1, sticky="w", pady=4)
+        self.ent_old.grid(row=row, column=1, sticky="w", pady=5)
         row += 1
 
         # Password Baru
-        tk.Label(frame, text="Password Baru:", font=("Segoe UI", 9), fg="#24476b", bg="#ffffff").grid(row=row, column=0, sticky="w", pady=4)
+        tk.Label(frame, text=tr("chg_lbl_new"), font=("Segoe UI", 9), fg="#334155", bg="#ffffff").grid(row=row, column=0, sticky="w", pady=5)
         self.var_new_pass = tk.StringVar()
         self.ent_new = ttk.Entry(frame, textvariable=self.var_new_pass, show="*", width=20, font=("Segoe UI", 9))
-        self.ent_new.grid(row=row, column=1, sticky="w", pady=4)
+        self.ent_new.grid(row=row, column=1, sticky="w", pady=5)
         row += 1
 
         # Konfirmasi Password Baru
-        tk.Label(frame, text="Ulangi Password:", font=("Segoe UI", 9), fg="#24476b", bg="#ffffff").grid(row=row, column=0, sticky="w", pady=4)
+        tk.Label(frame, text=tr("chg_lbl_conf"), font=("Segoe UI", 9), fg="#334155", bg="#ffffff").grid(row=row, column=0, sticky="w", pady=5)
         self.var_conf_pass = tk.StringVar()
         self.ent_conf = ttk.Entry(frame, textvariable=self.var_conf_pass, show="*", width=20, font=("Segoe UI", 9))
-        self.ent_conf.grid(row=row, column=1, sticky="w", pady=4)
+        self.ent_conf.grid(row=row, column=1, sticky="w", pady=5)
         row += 1
 
-        self.lbl_msg = tk.Label(frame, text="", font=("Segoe UI", 8, "bold"), fg="#c0392b", bg="#ffffff")
+        self.lbl_msg = tk.Label(frame, text="", font=("Segoe UI", 8, "bold"), fg="#dc2626", bg="#ffffff")
         self.lbl_msg.grid(row=row, column=0, columnspan=2, pady=6)
         row += 1
 
-        btn_save = tk.Button(frame, text="Simpan Password Baru", font=("Segoe UI", 9, "bold"),
-                             bg="#246c9e", fg="#ffffff", activebackground="#318ac8", activeforeground="#ffffff",
-                             relief="raised", bd=1, highlightthickness=1, highlightbackground="#154970",
-                             cursor="hand2", pady=6, command=self.do_save)
+        btn_save = tk.Button(
+            frame, text=tr("chg_btn_save"), font=("Segoe UI", 9, "bold"),
+            bg="#2563eb", fg="#ffffff", activebackground="#1d4ed8", activeforeground="#ffffff",
+            relief="flat", bd=0, cursor="hand2", pady=7, command=self.do_save
+        )
         btn_save.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(8, 0))
-        btn_save.bind("<Enter>", lambda e: btn_save.config(bg="#318ac8", highlightbackground="#48a6e8"))
-        btn_save.bind("<Leave>", lambda e: btn_save.config(bg="#246c9e", highlightbackground="#154970"))
+        btn_save.bind("<Enter>", lambda e: btn_save.config(bg="#1d4ed8"))
+        btn_save.bind("<Leave>", lambda e: btn_save.config(bg="#2563eb"))
 
     def do_save(self):
         target = self.var_target_user.get().strip()
@@ -271,23 +278,21 @@ class ChangePasswordDialog:
         conf_pass = self.var_conf_pass.get().strip()
 
         if new_pass != conf_pass:
-            self.lbl_msg.config(text="Konfirmasi password baru tidak cocok.")
+            self.lbl_msg.config(text=tr("chg_err_mismatch"))
             return
 
-        if len(new_pass) < 4:
-            self.lbl_msg.config(text="Password baru minimal 4 karakter.")
+        if len(new_pass) < 6:
+            self.lbl_msg.config(text=tr("chg_err_min_len"))
             return
 
         is_admin = self.current_user.get("role") == "admin"
         if is_admin and target != self.current_user.get("username"):
-            # Admin mereset password user lain tanpa perlu password lama
             success, msg = self.auth_manager.admin_reset_password(target, new_pass)
         else:
-            # Ganti password sendiri perlu password lama
             success, msg = self.auth_manager.change_password(target, old_pass, new_pass)
 
         if success:
-            messagebox.showinfo("Berhasil", msg, parent=self.dialog)
+            messagebox.showinfo("OK", msg, parent=self.dialog)
             self.dialog.destroy()
         else:
             self.lbl_msg.config(text=msg)
