@@ -73,6 +73,10 @@ TRANSLATIONS = {
         "btn_resync_queue": "Koreksi Antrean (-1)",
         "btn_judge_ok": "JUDGE OK",
         "btn_judge_ng": "JUDGE NG",
+        "card_last_ng": "Last NG Capture",
+        "ng_no_capture": "Belum ada rekaman NG",
+        "ng_box_info": "Kardus #{no} ({side})",
+        "ng_click_zoom": "Klik gambar untuk melihat resolusi penuh",
 
         # --- Table Row Statuses ---
         "st_err_empty_qr": "Error: QR Kosong",
@@ -362,6 +366,10 @@ TRANSLATIONS = {
         "btn_resync_queue": "Resync Queue (-1)",
         "btn_judge_ok": "JUDGE OK",
         "btn_judge_ng": "JUDGE NG",
+        "card_last_ng": "Last NG Capture",
+        "ng_no_capture": "No NG capture yet",
+        "ng_box_info": "Box #{no} ({side})",
+        "ng_click_zoom": "Click image to open full resolution",
 
         # --- Table Row Statuses ---
         "st_err_empty_qr": "Error: Empty QR",

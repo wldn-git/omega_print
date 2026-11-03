@@ -36,7 +36,7 @@ SAMPLE_WORK_ORDERS = [
         "items": [
             {
                 "ProductSKU": "NK 6173 BTGT",
-                "CouponCode_R1": "ECE4TUE11",
+                "CouponCode_R1": "ECE4TUE41",
                 "CouponCode_R2": "3XAHNTE9",
                 "MaterialCode": "NK 6173 BTGT-83IA00130"
             },

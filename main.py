@@ -25,6 +25,7 @@ from auth_manager import AuthManager
 from login_dialog import LoginDialog, ChangePasswordDialog
 from user_management_dialog import UserManagementDialog
 from api_manager import APIManager
+from ng_image_manager import NGImageManager
 from i18n import i18n, tr
 # --------------------------------
 
@@ -66,6 +67,9 @@ class OmegaBatchApp:
         self.data_manager = DataManager()
         self.auth_manager = AuthManager()
         self.api_manager = APIManager() # <--- Integrasi API Sistem Utama (v2.0)
+        self.ng_image_manager = NGImageManager()
+        self.current_ng_image_path = None
+        self.current_ng_photo = None
         self.current_user = None
         # --- FIX IKON TASKBAR (AppUserModelID) ---
         try:
@@ -1223,6 +1227,127 @@ class OmegaBatchApp:
             cursor="hand2", command=self.open_web_analytics
         )
         self.btn_web_ana.pack(fill=tk.X)
+
+        # Card 7: Last NG Capture (v3.0)
+        self.card_last_ng = tk.Frame(
+            right_pane, bg="#ffffff", relief="flat", bd=0,
+            highlightthickness=1, highlightbackground="#cbd5e1", highlightcolor="#cbd5e1",
+            padx=10, pady=8
+        )
+        self.card_last_ng.pack(fill=tk.X, pady=(0, 8))
+
+        f_ng_head = tk.Frame(self.card_last_ng, bg="#ffffff")
+        f_ng_head.pack(fill=tk.X, pady=(0, 4))
+
+        self.lbl_ng_title = tk.Label(
+            f_ng_head, text=tr("card_last_ng"),
+            font=("Segoe UI", 9, "bold"), fg="#0f172a", bg="#ffffff"
+        )
+        self.lbl_ng_title.pack(side=tk.LEFT)
+
+        self.lbl_ng_badge = tk.Label(
+            f_ng_head, text="READY",
+            font=("Segoe UI", 7, "bold"), fg="#64748b", bg="#f1f5f9",
+            padx=6, pady=1
+        )
+        self.lbl_ng_badge.pack(side=tk.RIGHT)
+
+        self.lbl_ng_info = tk.Label(
+            self.card_last_ng, text="-",
+            font=("Segoe UI", 8), fg="#64748b", bg="#ffffff", anchor="w"
+        )
+        self.lbl_ng_info.pack(fill=tk.X, pady=(0, 4))
+
+        self.lbl_ng_image = tk.Label(
+            self.card_last_ng, bg="#f1f5f9", relief="solid", bd=1,
+            cursor="hand2"
+        )
+        self.lbl_ng_image.pack(fill=tk.X, pady=(0, 2))
+        self.lbl_ng_image.bind("<Button-1>", lambda e: self._on_click_ng_image())
+
+        self.lbl_ng_hint = tk.Label(
+            self.card_last_ng, text=tr("ng_click_zoom"),
+            font=("Segoe UI", 7), fg="#94a3b8", bg="#ffffff"
+        )
+        self.lbl_ng_hint.pack(anchor="e")
+
+        self._init_ng_placeholder()
+
+    def _init_ng_placeholder(self):
+        """Menampilkan gambar placeholder saat belum ada kejadian NG"""
+        try:
+            pil_img = self.ng_image_manager.get_placeholder_pil(
+                target_width=250, target_height=140, text=tr("ng_no_capture")
+            )
+            if pil_img and hasattr(self, 'lbl_ng_image'):
+                self.current_ng_photo = ImageTk.PhotoImage(pil_img)
+                self.lbl_ng_image.config(image=self.current_ng_photo)
+        except Exception:
+            pass
+
+    def _on_click_ng_image(self):
+        """Membuka gambar NG dalam ukuran asli saat diklik"""
+        if getattr(self, 'current_ng_image_path', None) and os.path.exists(self.current_ng_image_path):
+            self.ng_image_manager.open_image_fullscreen(self.current_ng_image_path)
+
+    def trigger_ng_capture_update(self, box_no, box_sku, box_qr, s1_str, s2_str):
+        """Memperbarui card Last NG Capture secara thread-safe saat kardus dinilai NG"""
+        keyence_errors = ["ERROR", "-ERROR-", "NG", "NOREAD", "NO-READ"]
+        side = "Side A"
+        reason = "NG"
+
+        s1_upper = str(s1_str).upper()
+        s2_upper = str(s2_str).upper()
+
+        if any(e in s1_upper for e in keyence_errors) or s1_str != box_qr:
+            side = "Side A"
+            reason = "NOREAD" if "NOREAD" in s1_upper else "MISMATCH"
+        elif any(e in s2_upper for e in keyence_errors) or s2_str != box_qr:
+            side = "Side B"
+            reason = "NOREAD" if "NOREAD" in s2_upper else "MISMATCH"
+
+        def _worker():
+            is_sim = self.check_is_simulation()
+            img_path = None
+
+            if not is_sim:
+                # Beri jeda 0.35s agar transfer FTP dari Keyence selesai ditulis ke disk
+                time.sleep(0.35)
+                img_path = self.ng_image_manager.get_latest_ftp_image(max_age_seconds=60)
+
+            if not img_path or not os.path.exists(img_path):
+                img_path = self.ng_image_manager.generate_simulated_ng_image(
+                    box_no=box_no, sku=box_sku, qr=box_qr, side=side, reason=reason
+                )
+
+            self.current_ng_image_path = img_path
+            pil_thumb = self.ng_image_manager.get_thumbnail_pil(img_path, target_width=250, target_height=140)
+
+            def _apply_ui():
+                try:
+                    if pil_thumb and hasattr(self, 'lbl_ng_image'):
+                        self.current_ng_photo = ImageTk.PhotoImage(pil_thumb)
+                        self.lbl_ng_image.config(image=self.current_ng_photo)
+                    if hasattr(self, 'lbl_ng_badge'):
+                        self.lbl_ng_badge.config(text=f"{side.upper()} : {reason}", fg="#ffffff", bg="#dc2626")
+                    if hasattr(self, 'lbl_ng_info'):
+                        now_str = datetime.datetime.now().strftime("%H:%M:%S")
+                        self.lbl_ng_info.config(text=f"Box #{box_no} | {box_sku} | {now_str}")
+                except Exception as ex:
+                    print(f"Error updating NG UI: {ex}")
+
+            if threading.current_thread() is threading.main_thread():
+                _apply_ui()
+            else:
+                try:
+                    self.root.after(0, _apply_ui)
+                except Exception:
+                    pass
+
+        if threading.current_thread() is threading.main_thread() and self.check_is_simulation():
+            _worker()
+        else:
+            threading.Thread(target=_worker, daemon=True).start()
 
     def toggle_sim_panel(self):
         """Buka / tutup panel alat simulasi & koreksi admin"""
@@ -2943,6 +3068,12 @@ class OmegaBatchApp:
             # Deteksi potensi Cascade NG akibat pergeseran antrean fisik
             if self.consecutive_ng_count >= 3:
                 self._warn_cascade_ng()
+
+            # Update Last NG Capture (v3.0)
+            try:
+                self.trigger_ng_capture_update(box_no, box_sku, box_qr, s1_str, s2_str)
+            except Exception as e_ng:
+                self.log_msg(f"[NG CAPTURE ERROR] {e_ng}")
         
         # TINGKATKAN COUNTER JUDGEMENT SEBELUM UPDATE LIVE STATS
         self.current_judgments += 1
@@ -4463,6 +4594,8 @@ class OmegaBatchApp:
                 self.lbl_file_chip.config(text=self._format_chip_text(tr("lbl_no_file")))
             if hasattr(self, 'btn_apply_col'): self.btn_apply_col.config(text=tr("btn_apply"))
             if hasattr(self, 'btn_web_ana'): self.btn_web_ana.config(text=tr("btn_web_analytics"))
+            if hasattr(self, 'lbl_ng_title'): self.lbl_ng_title.config(text=tr("card_last_ng"))
+            if hasattr(self, 'lbl_ng_hint'): self.lbl_ng_hint.config(text=tr("ng_click_zoom"))
 
             if hasattr(self, 'tree'):
                 self.tree.heading("no", text=tr("col_no"))
