@@ -7,3 +7,4 @@ pyserial>=3.5
 qrcode>=7.4.2
 tkcalendar>=1.6.1
 pyinstaller>=6.0.0
+pyftpdlib>=2.0.0

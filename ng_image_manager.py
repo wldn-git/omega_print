@@ -1,26 +1,117 @@
 # ng_image_manager.py
 """
 NG Image Manager for Keyence SR-X100
-Handles fetching, caching, thumbnailing, and displaying images captured by Keyence SR-X100
-transferred via the local Keyence FTP service or generated in simulation mode.
+Handles fetching, caching, thumbnailing, and displaying images captured by Keyence SR-X100.
+Features:
+- Embedded standalone background FTP server (pyftpdlib) for zero-dependency standalone installation.
+- Smart auto-detection: If port 21 is already used (e.g., Keyence SRManagementTool), falls back to monitoring the Keyence FTP folder.
+- If port 21 is free (fresh PC install), embedded FTP server starts automatically and receives images to data/ng_captures/.
+- Real-time event callback on image reception.
+- Realistic simulated capture generation when in simulation mode.
 """
 
 import os
 import glob
 import time
+import socket
+import threading
 from datetime import datetime
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 
 DEFAULT_KEYENCE_FTP_DIR = r"C:\Users\Public\Documents\KEYENCE\SR-H7W\SRManagementTool\ftp"
 FALLBACK_CAPTURE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "ng_captures")
 
+
+def is_port_in_use(port, host="127.0.0.1"):
+    """Mengecek apakah port tertentu sedang digunakan oleh proses lain"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.5)
+        try:
+            s.bind((host, port))
+            return False
+        except (socket.error, OSError):
+            return True
+
+
+class EmbeddedFTPServer:
+    """Server FTP internal ringan berbasis pyftpdlib untuk instalasi standalone tanpa software Keyence eksternal"""
+    def __init__(self, target_dir, port=21, user="admin", password="admin", on_file_received_cb=None):
+        self.target_dir = os.path.abspath(target_dir)
+        self.port = port
+        self.user = user
+        self.password = password
+        self.on_file_received_cb = on_file_received_cb
+        self.server = None
+        self.thread = None
+        self.is_running = False
+
+    def start(self):
+        try:
+            from pyftpdlib.authorizers import DummyAuthorizer
+            from pyftpdlib.handlers import FTPHandler
+            from pyftpdlib.servers import FTPServer
+
+            if not os.path.exists(self.target_dir):
+                os.makedirs(self.target_dir, exist_ok=True)
+
+            authorizer = DummyAuthorizer()
+            authorizer.add_user(self.user, self.password, self.target_dir, perm="elradfmw")
+
+            cb = self.on_file_received_cb
+
+            class CustomFTPHandler(FTPHandler):
+                def on_file_received(self, file):
+                    super().on_file_received(file)
+                    if cb:
+                        try:
+                            cb(file)
+                        except Exception:
+                            pass
+
+            handler = CustomFTPHandler
+            handler.authorizer = authorizer
+            handler.banner = "Omega MX Embedded FTP Ready."
+
+            self.server = FTPServer(("0.0.0.0", self.port), handler)
+            self.server.max_cons = 10
+            self.server.max_cons_per_ip = 5
+
+            def _serve():
+                self.is_running = True
+                try:
+                    self.server.serve_forever(timeout=1.0)
+                except Exception:
+                    pass
+                finally:
+                    self.is_running = False
+
+            self.thread = threading.Thread(target=_serve, daemon=True)
+            self.thread.start()
+            return True, f"Embedded FTP Server aktif di 0.0.0.0:{self.port} (Dir: {self.target_dir})"
+        except Exception as e:
+            self.is_running = False
+            return False, f"Gagal memulai Embedded FTP: {e}"
+
+    def stop(self):
+        if self.server:
+            try:
+                self.server.close_all()
+            except Exception:
+                pass
+            self.server = None
+        self.is_running = False
+
+
 class NGImageManager:
-    def __init__(self, ftp_dir=None, fallback_dir=None):
+    def __init__(self, ftp_dir=None, fallback_dir=None, on_image_received=None):
         self.ftp_dir = ftp_dir or DEFAULT_KEYENCE_FTP_DIR
         self.fallback_dir = fallback_dir or FALLBACK_CAPTURE_DIR
         self._ensure_directories()
         self.last_ng_image_path = None
         self.last_ng_meta = {}
+        self.on_image_received = on_image_received
+        self.embedded_server = None
+        self.server_status = "idle"
 
     def _ensure_directories(self):
         try:
@@ -29,12 +120,50 @@ class NGImageManager:
         except Exception:
             pass
 
+    def start_ftp_service(self, port=21, user="admin", password="admin"):
+        """
+        Smart FTP Initialization:
+        1. Jika Port 21 sedang dipakai (misal Keyence SRManagementTool running):
+           Mode fallback: Gunakan monitoring folder Keyence eksternal.
+        2. Jika Port 21 BEBAS (di PC baru / fresh install):
+           Nyalakan Embedded FTP Server internal otomatis!
+        """
+        self._ensure_directories()
+        if is_port_in_use(port):
+            self.server_status = "external_used"
+            return False, f"Port {port} sudah digunakan oleh service lain (Keyence). Menggunakan mode monitoring folder eksternal."
+
+        try:
+            self.embedded_server = EmbeddedFTPServer(
+                target_dir=self.fallback_dir,
+                port=port,
+                user=user,
+                password=password,
+                on_file_received_cb=self._on_embedded_file_received
+            )
+            ok, msg = self.embedded_server.start()
+            if ok:
+                self.server_status = "embedded_running"
+            return ok, msg
+        except Exception as e:
+            self.server_status = "failed"
+            return False, f"Gagal inisialisasi embedded FTP: {e}"
+
+    def _on_embedded_file_received(self, file_path):
+        """Callback saat file gambar baru selesai diupload oleh scanner ke embedded FTP"""
+        self.last_ng_image_path = file_path
+        if self.on_image_received:
+            try:
+                self.on_image_received(file_path)
+            except Exception:
+                pass
+
     def get_latest_ftp_image(self, max_age_seconds=60):
         """
-        Mencari file gambar terbaru (.jpg, .jpeg, .png, .bmp) di folder FTP Keyence.
-        Jika max_age_seconds diberikan, hanya ambil file yang dibuat/dimodifikasi baru-baru ini.
+        Mencari file gambar terbaru (.jpg, .jpeg, .png, .bmp) di folder FTP (embedded atau Keyence).
         """
-        search_dirs = [self.ftp_dir, self.fallback_dir]
+        # Prioritaskan folder fallback (embedded) lalu folder Keyence eksternal
+        search_dirs = [self.fallback_dir, self.ftp_dir]
         valid_extensions = ("*.jpg", "*.jpeg", "*.png", "*.bmp")
         
         latest_file = None
@@ -64,7 +193,7 @@ class NGImageManager:
     def get_thumbnail_pil(self, image_path, target_width=250, target_height=140):
         """
         Membuat thumbnail PIL Image dari file gambar dengan menjaga aspect ratio.
-        Thread-safe karena hanya mengembalikan PIL Image murni (belum dikonversi ke Tkinter PhotoImage).
+        Thread-safe karena mengembalikan PIL Image murni.
         """
         if not image_path or not os.path.exists(image_path):
             return None

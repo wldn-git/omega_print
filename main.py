@@ -67,9 +67,17 @@ class OmegaBatchApp:
         self.data_manager = DataManager()
         self.auth_manager = AuthManager()
         self.api_manager = APIManager() # <--- Integrasi API Sistem Utama (v2.0)
-        self.ng_image_manager = NGImageManager()
+        self.ng_image_manager = NGImageManager(
+            on_image_received=self._on_ftp_image_received
+        )
         self.current_ng_image_path = None
         self.current_ng_photo = None
+        # Start smart FTP service in background
+        def _bg_ftp_init():
+            time.sleep(1.2)
+            ok, msg = self.ng_image_manager.start_ftp_service(port=21)
+            self.log_msg(f"[FTP SERVICE] {msg}")
+        threading.Thread(target=_bg_ftp_init, daemon=True).start()
         self.current_user = None
         # --- FIX IKON TASKBAR (AppUserModelID) ---
         try:
@@ -1289,6 +1297,22 @@ class OmegaBatchApp:
         """Membuka gambar NG dalam ukuran asli saat diklik"""
         if getattr(self, 'current_ng_image_path', None) and os.path.exists(self.current_ng_image_path):
             self.ng_image_manager.open_image_fullscreen(self.current_ng_image_path)
+
+    def _on_ftp_image_received(self, file_path):
+        """Callback saat scanner menembakkan foto ke embedded FTP server"""
+        def _apply():
+            try:
+                self.current_ng_image_path = file_path
+                pil_thumb = self.ng_image_manager.get_thumbnail_pil(file_path, target_width=250, target_height=140)
+                if pil_thumb and hasattr(self, 'lbl_ng_image'):
+                    self.current_ng_photo = ImageTk.PhotoImage(pil_thumb)
+                    self.lbl_ng_image.config(image=self.current_ng_photo)
+            except Exception:
+                pass
+        try:
+            self.root.after(0, _apply)
+        except Exception:
+            pass
 
     def trigger_ng_capture_update(self, box_no, box_sku, box_qr, s1_str, s2_str):
         """Memperbarui card Last NG Capture secara thread-safe saat kardus dinilai NG"""
