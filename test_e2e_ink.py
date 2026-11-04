@@ -11,10 +11,17 @@ class TestE2EInkMonitoring(unittest.TestCase):
     def setUpClass(cls):
         cls.root = tk.Tk()
         cls.app = OmegaBatchApp(cls.root)
+        cls.test_cache_file = os.path.join(cls.app.data_manager.data_dir, "test_ink_cache_temp.json")
+        cls.app.data_manager.ink_cache_file = cls.test_cache_file
         cls.root.update()
 
     @classmethod
     def tearDownClass(cls):
+        try:
+            if hasattr(cls, 'test_cache_file') and os.path.exists(cls.test_cache_file):
+                os.remove(cls.test_cache_file)
+        except Exception:
+            pass
         try:
             cls.root.destroy()
         except Exception:
