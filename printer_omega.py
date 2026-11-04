@@ -39,6 +39,12 @@ class OmegaPrinter:
         if self.sock is None:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            if hasattr(socket, 'SIO_KEEPALIVE_VALS'):
+                try:
+                    # Windows TCP KeepAlive: aktif (1), waktu tunggu 2000ms, interval probe 1000ms
+                    s.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 2000, 1000))
+                except Exception:
+                    pass
             try:
                 s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             except Exception:
@@ -62,9 +68,24 @@ class OmegaPrinter:
         """Test koneksi aktual ke printer dan validasi respon STATUS"""
         try:
             reply = self.send_and_read(ip, port, "STATUS")
-            if reply and not reply.startswith("ERROR_CONN:"):
+            if reply and not reply.startswith("ERROR_CONN:") and "EER" not in reply.upper():
                 return True, f"Printer Online! (Respon: {reply})"
             return False, f"Printer tidak merespon perintah STATUS ({reply})"
+        except Exception as e:
+            return False, str(e)
+
+    def check_status(self, ip, port):
+        """
+        Pengecekan ringan status online printer menggunakan perintah STATUS (Watchdog).
+        Format sukses: STATUS|0,0 atau STATUS|1,0
+        Format gagal: STATUS |EER atau timeout / connection error
+        Mengembalikan tuple: (is_online: bool, reply: str)
+        """
+        try:
+            reply = self.send_and_read(ip, port, "STATUS")
+            if reply and not reply.startswith("ERROR_CONN:") and "EER" not in reply.upper() and ("STATUS|" in reply or "STATUS |" in reply):
+                return True, reply
+            return False, reply or "NO_REPLY"
         except Exception as e:
             return False, str(e)
 

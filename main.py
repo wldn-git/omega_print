@@ -82,7 +82,9 @@ class OmegaBatchApp:
         # Muat cache level tinta terakhir yang tersimpan di disk
         self.current_ink_levels, self.ink_last_updated = self.data_manager.load_last_ink_levels()
         self.ink_is_online = False
+        self.printer_connected = False
         self._start_ink_polling_thread()
+        self._start_hardware_watchdog_thread()
         # --- FIX IKON TASKBAR (AppUserModelID) ---
         try:
             from ctypes import windll
@@ -740,6 +742,7 @@ class OmegaBatchApp:
         self.build_master_tab()
         self.load_hardware_config()
         self.update_hardware_indicators()
+        self._schedule_hardware_ui_refresh()
 
     def switch_nav(self, nav_id):
         """Beralih tab halaman melalui klik tombol navigasi sidebar"""
@@ -832,15 +835,18 @@ class OmegaBatchApp:
                 col2 = "#10b981" if getattr(self, 'is_listening2', False) else "#ef4444"
                 self.lbl_hw_scanner2.config(fg=col2)
             # Printer
+            is_sim = self.check_is_simulation()
+            is_conn = getattr(self, 'printer_connected', False)
+            if is_conn:
+                col_p = "#10b981"  # Hijau (Aktual Terhubung)
+            elif is_sim:
+                col_p = "#10b981"  # Hijau (Mode Simulasi Aktif)
+            else:
+                col_p = "#ef4444"  # Merah (Terputus / Kabel Terlepas)
+
             if hasattr(self, 'canvas_hw_p'):
-                is_sim = getattr(self, 'is_simulation', None) and self.is_simulation.get()
-                is_conn = getattr(self, 'printer_connected', False)
-                col_p = "#10b981" if (is_sim or is_conn) else "#64748b"
                 self.canvas_hw_p.itemconfig(self.dot_hw_printer, fill=col_p)
             elif hasattr(self, 'lbl_hw_printer'):
-                is_sim = getattr(self, 'is_simulation', None) and self.is_simulation.get()
-                is_conn = getattr(self, 'printer_connected', False)
-                col_p = "#10b981" if (is_sim or is_conn) else "#64748b"
                 self.lbl_hw_printer.config(fg=col_p)
             # Modbus
             if hasattr(self, 'canvas_hw_m'):
@@ -1335,6 +1341,53 @@ class OmegaBatchApp:
         """Membuka gambar NG dalam ukuran asli saat diklik"""
         if getattr(self, 'current_ng_image_path', None) and os.path.exists(self.current_ng_image_path):
             self.ng_image_manager.open_image_fullscreen(self.current_ng_image_path)
+
+    def _schedule_hardware_ui_refresh(self):
+        """Loop refresh GUI per detik agar lampu indikator hardware di header selalu sinkron real-time"""
+        try:
+            self.update_hardware_indicators()
+        except Exception:
+            pass
+        try:
+            self.root.after(1000, self._schedule_hardware_ui_refresh)
+        except Exception:
+            pass
+
+    def _start_hardware_watchdog_thread(self):
+        """
+        Watchdog background thread:
+        Memantau koneksi aktual printer (Heartbeat STATUS) dan scanner secara berkala (tiap 3 detik).
+        Mendeteksi kabel lepas seketika dan memperbarui status sistem secara real-time.
+        """
+        def _watchdog_loop():
+            time.sleep(2.0)
+            while True:
+                try:
+                    # Cek printer hanya jika tidak sedang sibuk mencetak batch MFD
+                    if not getattr(self, 'is_printing', False) and not self.check_is_simulation():
+                        try:
+                            ip = self.ip_addr.get().strip()
+                            port = int(self.ip_port.get().strip())
+                        except Exception:
+                            ip = "192.168.100.10"
+                            port = 6008
+
+                        is_online, rep = self.printer.check_status(ip, port)
+                        prev_status = getattr(self, 'printer_connected', False)
+                        self.printer_connected = is_online
+
+                        if prev_status and not is_online:
+                            self.log_msg(f"[ALARM PRINTER] Koneksi ke Printer Omega MX ({ip}:{port}) Terputus! ({rep})")
+                        elif not prev_status and is_online:
+                            self.log_msg(f"[PRINTER] Printer Omega MX ({ip}:{port}) Terhubung (Aktif).")
+                    elif self.check_is_simulation():
+                        self.printer_connected = True
+                except Exception:
+                    pass
+                time.sleep(3.0)
+
+        t = threading.Thread(target=_watchdog_loop, daemon=True)
+        t.start()
 
     def _start_ink_polling_thread(self):
         """Memulai background daemon untuk polling level tinta per 10 menit (600s)"""
@@ -2488,6 +2541,8 @@ class OmegaBatchApp:
             def _worker_test():
                 success, msg = self.printer.test_connection(ip, port)
                 def _on_done():
+                    self.printer_connected = success
+                    self.update_hardware_indicators()
                     if success:
                         self.log_msg("Test Koneksi Omega MX (Aktual) - Berhasil")
                         threading.Thread(target=self.query_ink_levels, daemon=True).start()
@@ -2969,6 +3024,12 @@ class OmegaBatchApp:
 
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            if hasattr(socket, 'SIO_KEEPALIVE_VALS'):
+                try:
+                    # Windows TCP KeepAlive: aktif (1), waktu tunggu 2000ms, interval probe 1000ms
+                    sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 2000, 1000))
+                except Exception:
+                    pass
             sock.settimeout(2.5)
             sock.connect((ip_var.get().strip(), int(port_var.get().strip())))
             sock.settimeout(1.0) # Non-blocking timeout agar thread responsif saat kabel dicabut (T2)
@@ -3059,6 +3120,7 @@ class OmegaBatchApp:
                     if scanner_id == 1: self.is_listening1 = False
                     else: self.is_listening2 = False
                     self.update_scanner_ui_status(scanner_id)
+                    self.update_hardware_indicators()
                     break
                 
                 buffer += chunk.decode('utf-8', errors='ignore')
@@ -3080,6 +3142,7 @@ class OmegaBatchApp:
                 if scanner_id == 1: self.is_listening1 = False
                 else: self.is_listening2 = False
                 self.update_scanner_ui_status(scanner_id)
+                self.update_hardware_indicators()
                 break
 
     def _cancel_dual_scan_timer(self):
