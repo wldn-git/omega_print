@@ -175,5 +175,27 @@ class TestHardwareAlarmPopup(unittest.TestCase):
             self.assertEqual(len(self.app.waiting_queue), 0)
         self.assertIn(self.app.tree.item(item_id, 'tags'), [(), '', []])
 
+    def test_08_test_tcp_and_scanner_reconnect_flags(self):
+        """Verifikasi test_tcp printer tidak melempar NameError scanner_id dan connect_scanner me-reset flag manual"""
+        # 1. Pastikan test_tcp berjalan mulus tanpa NameError
+        with patch.object(self.app.printer, 'test_connection', return_value=(True, "Connected")), \
+             patch('main.messagebox.showinfo'):
+            self.app.is_simulation.set(False)
+            self.app.test_tcp()
+            self.root.update()
+            self.assertFalse(self.app._manual_disconnect_printer)
+
+        # 2. Putuskan scanner 1, verifikasi flag manual diset True
+        self.app.disconnect_scanner(1)
+        self.assertTrue(self.app._manual_disconnect_s1)
+        self.assertFalse(self.app._scanner1_auto_reconnect_enabled)
+
+        # 3. Hubungkan kembali scanner 1, verifikasi flag manual di-reset ke False dan auto reconnect aktif
+        self.app.is_simulation.set(True)
+        ok = self.app.connect_scanner(1, silent=True)
+        self.assertTrue(ok)
+        self.assertFalse(self.app._manual_disconnect_s1)
+        self.assertTrue(self.app._scanner1_auto_reconnect_enabled)
+
 if __name__ == "__main__":
     unittest.main()

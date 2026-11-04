@@ -966,6 +966,10 @@ class OmegaBatchApp:
                 x = max(0, (win.winfo_screenwidth() - win_w) // 2)
                 y = max(0, (win.winfo_screenheight() - win_h) // 2)
             win.geometry(f"{win_w}x{win_h}+{x}+{y}")
+            win.deiconify()
+            win.lift()
+            win.attributes("-topmost", True)
+            win.focus_force()
         except Exception:
             pass
 
@@ -2781,12 +2785,7 @@ class OmegaBatchApp:
     # ==========================================
     def test_tcp(self):
         """Uji koneksi printer secara non-blocking di worker thread (S2)"""
-        if scanner_id == 1:
-            self._manual_disconnect_s1 = False
-            self._scanner1_auto_reconnect_enabled = True
-        else:
-            self._manual_disconnect_s2 = False
-            self._scanner2_auto_reconnect_enabled = True
+        self._manual_disconnect_printer = False
 
         if self.is_simulation.get():
             self.log_msg("Test Koneksi Omega MX (Mode Simulasi) - OK")
@@ -2808,7 +2807,10 @@ class OmegaBatchApp:
                     else:
                         self.log_msg(f"Test Koneksi Omega MX Gagal: {msg}")
                         messagebox.showerror("Gagal", f"Printer Offline:\n{msg}", parent=self.root)
-                self.root.after(0, _on_done)
+                try:
+                    self.root.after(0, _on_done)
+                except Exception:
+                    pass
             threading.Thread(target=_worker_test, daemon=True).start()
        
     def check_is_simulation(self):
@@ -3318,8 +3320,12 @@ class OmegaBatchApp:
         if self.is_simulation.get():
             if scanner_id == 1: 
                 self.is_listening1 = True
+                self._manual_disconnect_s1 = False
+                self._scanner1_auto_reconnect_enabled = True
             else: 
                 self.is_listening2 = True
+                self._manual_disconnect_s2 = False
+                self._scanner2_auto_reconnect_enabled = True
             self.update_scanner_ui_status(scanner_id)
             self.log_msg(f"Scanner {scanner_id} ({side_name}) terhubung (Mode Simulasi).")
             if not silent:
@@ -3354,9 +3360,13 @@ class OmegaBatchApp:
                 self.scanner1_socket = sock
                 self.scanner_socket = sock
                 self.is_listening1 = True
+                self._manual_disconnect_s1 = False
+                self._scanner1_auto_reconnect_enabled = True
             else:
                 self.scanner2_socket = sock
                 self.is_listening2 = True
+                self._manual_disconnect_s2 = False
+                self._scanner2_auto_reconnect_enabled = True
 
             self.update_scanner_ui_status(scanner_id)
             threading.Thread(target=self.listen_to_scanner, args=(scanner_id,), daemon=True).start()
