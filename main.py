@@ -1802,35 +1802,42 @@ class OmegaBatchApp:
         except Exception:
             pass
 
-    def trigger_ng_capture_update(self, box_no, box_sku, box_qr, s1_str, s2_str):
+    def trigger_ng_capture_update(self, box_no, box_sku, box_qr, box_mat, s1_str, s2_str):
         """Memperbarui card Last NG Capture secara thread-safe saat kardus dinilai NG"""
         keyence_errors = ["ERROR", "-ERROR-", "NG", "NOREAD", "NO-READ"]
         side = "Side A"
-        reason = "NG"
+        reason = "MISMATCH"
 
         s1_upper = str(s1_str).upper()
         s2_upper = str(s2_str).upper()
 
         if any(e in s1_upper for e in keyence_errors) or s1_str != box_qr:
             side = "Side A"
-            reason = "NOREAD" if "NOREAD" in s1_upper else "MISMATCH"
+            reason = "NOREAD" if any(e in s1_upper for e in keyence_errors) else "MISMATCH"
         elif any(e in s2_upper for e in keyence_errors) or s2_str != box_qr:
             side = "Side B"
-            reason = "NOREAD" if "NOREAD" in s2_upper else "MISMATCH"
+            reason = "NOREAD" if any(e in s2_upper for e in keyence_errors) else "MISMATCH"
+
+        now_dt = datetime.datetime.now()
+        timestamp_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+        time_only = now_dt.strftime("%H:%M:%S")
 
         def _worker():
             is_sim = self.check_is_simulation()
-            img_path = None
-
             if not is_sim:
-                # Beri jeda 0.35s agar transfer FTP dari Keyence selesai ditulis ke disk
+                # Jeda 0.35s agar transfer FTP dari Keyence selesai ditulis ke disk
                 time.sleep(0.35)
-                img_path = self.ng_image_manager.get_latest_ftp_image(max_age_seconds=60)
 
-            if not img_path or not os.path.exists(img_path):
-                img_path = self.ng_image_manager.generate_simulated_ng_image(
-                    box_no=box_no, sku=box_sku, qr=box_qr, side=side, reason=reason
-                )
+            img_path = self.ng_image_manager.process_ng_capture(
+                box_no=box_no,
+                sku=box_sku,
+                coupon_qr=box_qr,
+                material_code=box_mat,
+                timestamp_str=timestamp_str,
+                incident_type=reason,
+                side=side,
+                is_sim=is_sim
+            )
 
             self.current_ng_image_path = img_path
             pil_thumb = self.ng_image_manager.get_thumbnail_pil(img_path, target_width=250, target_height=140)
@@ -1843,8 +1850,7 @@ class OmegaBatchApp:
                     if hasattr(self, 'lbl_ng_badge'):
                         self.lbl_ng_badge.config(text=f"{side.upper()} : {reason}", fg="#ffffff", bg="#dc2626")
                     if hasattr(self, 'lbl_ng_info'):
-                        now_str = datetime.datetime.now().strftime("%H:%M:%S")
-                        self.lbl_ng_info.config(text=f"Box #{box_no} | {box_sku} | {now_str}")
+                        self.lbl_ng_info.config(text=f"Box #{box_no} | {box_sku} | {time_only}")
                 except Exception as ex:
                     print(f"Error updating NG UI: {ex}")
 
@@ -3643,7 +3649,9 @@ class OmegaBatchApp:
         if is_ok:
             self.consecutive_ng_count = 0
             self.cascade_warning_active = False
-            self.count_ok += 1 
+            self.count_ok += 1
+            if not self.check_is_simulation():
+                threading.Thread(target=self.ng_image_manager.cleanup_incoming_ftp_images, daemon=True).start() 
             if side1_val is not None or side2_val is not None:
                 self.log_msg(f"[OK] No.{box_no} (S1: {s1_str} | S2: {s2_str})")
             else:
@@ -3678,7 +3686,7 @@ class OmegaBatchApp:
 
             # Update Last NG Capture (v3.0)
             try:
-                self.trigger_ng_capture_update(box_no, box_sku, box_qr, s1_str, s2_str)
+                self.trigger_ng_capture_update(box_no, box_sku, box_qr, box_mat, s1_str, s2_str)
             except Exception as e_ng:
                 self.log_msg(f"[NG CAPTURE ERROR] {e_ng}")
         
