@@ -77,6 +77,12 @@ TRANSLATIONS = {
         "ng_no_capture": "Belum ada rekaman NG",
         "ng_box_info": "Kardus #{no} ({side})",
         "ng_click_zoom": "Klik gambar untuk melihat resolusi penuh",
+        "card_ink_level": "Ink Cartridge Level",
+        "lbl_cartridge": "Cartridge",
+        "ink_waiting": "Menunggu data printer...",
+        "ink_offline": "Printer Terputus",
+        "ink_critical": "Tinta Menipis!",
+        "ink_updated": "Diperbarui: {time}",
 
         # --- Table Row Statuses ---
         "st_err_empty_qr": "Error: QR Kosong",
@@ -370,6 +376,12 @@ TRANSLATIONS = {
         "ng_no_capture": "No NG capture yet",
         "ng_box_info": "Box #{no} ({side})",
         "ng_click_zoom": "Click image to open full resolution",
+        "card_ink_level": "Ink Cartridge Level",
+        "lbl_cartridge": "Cartridge",
+        "ink_waiting": "Waiting for printer data...",
+        "ink_offline": "Printer Offline",
+        "ink_critical": "Low Ink Warning!",
+        "ink_updated": "Updated: {time}",
 
         # --- Table Row Statuses ---
         "st_err_empty_qr": "Error: Empty QR",

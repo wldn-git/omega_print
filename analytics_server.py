@@ -1086,6 +1086,17 @@ class AnalyticsServer:
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Level Tinta Printer Omega (Dinamis 2-4 Cartridge) -->
+                        <div class="ink-card-section" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <span id="i18n_inkTitle" style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Level Tinta Cartridge</span>
+                                <span id="inkLastUpdated" style="font-size: 10px; color: #94a3b8;">-</span>
+                            </div>
+                            <div id="inkBarsList" style="display: flex; flex-direction: column; gap: 6px;">
+                                <div id="inkEmptyText" style="font-size: 11px; color: #94a3b8; font-style: italic; padding: 2px 0;">Menunggu data printer...</div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- TOTAL LOLOS & TOTAL AFKIR -->
@@ -1237,6 +1248,10 @@ class AnalyticsServer:
                 hwStandby: "Siaga",
                 hwReady: "Siap",
                 batchProgress: "Kemajuan Batch",
+                inkTitle: "Level Tinta Cartridge",
+                inkWaiting: "Menunggu data printer...",
+                inkUpdated: "Diperbarui:",
+                lblCartridge: "Cartridge",
                 gaugeSub: "KEMAJUAN",
                 boxDone: "Kardus Selesai",
                 lblRem: "Sisa:",
@@ -1313,6 +1328,10 @@ class AnalyticsServer:
                 hwStandby: "Standby",
                 hwReady: "Ready",
                 batchProgress: "Batch Progress",
+                inkTitle: "Ink Cartridge Level",
+                inkWaiting: "Waiting for printer data...",
+                inkUpdated: "Updated:",
+                lblCartridge: "Cartridge",
                 gaugeSub: "PROGRESS",
                 boxDone: "Boxes Completed",
                 lblRem: "Rem:",
@@ -1394,6 +1413,7 @@ class AnalyticsServer:
                 i18n_hwModbus: 'hwModbus',
                 i18n_hwApi: 'hwApi',
                 i18n_batchProgress: 'batchProgress',
+                i18n_inkTitle: 'inkTitle',
                 i18n_gaugeSub: 'gaugeSub',
                 i18n_boxDone: 'boxDone',
                 i18n_lblRem: 'lblRem',
@@ -1567,6 +1587,39 @@ class AnalyticsServer:
             const ngCnt = p.count_ng || 0;
             document.getElementById('countOk').innerText = okCnt;
             document.getElementById('countNg').innerText = ngCnt;
+
+            // Level Tinta Cartridge (Dinamis)
+            const inkLevels = s.ink_levels || [];
+            const inkTime = s.ink_last_updated || '-';
+            const elInkTime = document.getElementById('inkLastUpdated');
+            if (elInkTime) elInkTime.innerText = inkTime !== '-' ? `${wtr('inkUpdated')} ${inkTime}` : '-';
+
+            const elInkBars = document.getElementById('inkBarsList');
+            if (elInkBars) {
+                if (!inkLevels || inkLevels.length === 0) {
+                    elInkBars.innerHTML = `<div id="inkEmptyText" style="font-size: 11px; color: #94a3b8; font-style: italic; padding: 2px 0;">${wtr('inkWaiting')}</div>`;
+                } else {
+                    let html = '';
+                    inkLevels.forEach(c => {
+                        const lvl = c.level !== undefined ? c.level : 0;
+                        let barColor = '#10b981';
+                        if (lvl < 15.0) barColor = '#ef4444';
+                        else if (lvl <= 30.0) barColor = '#f59e0b';
+
+                        html += `
+                        <div style="display: flex; flex-direction: column; gap: 3px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600;">
+                                <span style="color: #334155;">${wtr('lblCartridge')} ${c.cartridge}</span>
+                                <span style="color: ${barColor}; font-weight: 700;">${lvl.toFixed(1)}%</span>
+                            </div>
+                            <div style="width: 100%; height: 7px; background: #f1f5f9; border-radius: 4px; overflow: hidden; border: 1px solid #e2e8f0;">
+                                <div style="width: ${Math.min(100, Math.max(0, lvl))}%; height: 100%; background: ${barColor}; border-radius: 3px; transition: width 0.4s ease;"></div>
+                            </div>
+                        </div>`;
+                    });
+                    elInkBars.innerHTML = html;
+                }
+            }
         }
 
         // 1. POLLING STATUS LANGSUNG DARI LAPANGAN (Setiap 1.5 detik)

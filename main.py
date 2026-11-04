@@ -79,6 +79,9 @@ class OmegaBatchApp:
             self.log_msg(f"[FTP SERVICE] {msg}")
         threading.Thread(target=_bg_ftp_init, daemon=True).start()
         self.current_user = None
+        self.current_ink_levels = []
+        self.ink_last_updated = None
+        self._start_ink_polling_thread()
         # --- FIX IKON TASKBAR (AppUserModelID) ---
         try:
             from ctypes import windll
@@ -1281,6 +1284,38 @@ class OmegaBatchApp:
 
         self._init_ng_placeholder()
 
+        # Card 8: Ink Cartridge Level (v3.0)
+        self.card_ink_level = tk.Frame(
+            right_pane, bg="#ffffff", relief="flat", bd=0,
+            highlightthickness=1, highlightbackground="#cbd5e1", highlightcolor="#cbd5e1",
+            padx=10, pady=8
+        )
+        self.card_ink_level.pack(fill=tk.X, pady=(0, 8))
+
+        f_ink_head = tk.Frame(self.card_ink_level, bg="#ffffff")
+        f_ink_head.pack(fill=tk.X, pady=(0, 4))
+
+        self.lbl_ink_title = tk.Label(
+            f_ink_head, text=tr("card_ink_level"),
+            font=("Segoe UI", 9, "bold"), fg="#0f172a", bg="#ffffff"
+        )
+        self.lbl_ink_title.pack(side=tk.LEFT)
+
+        self.lbl_ink_time = tk.Label(
+            f_ink_head, text="-",
+            font=("Segoe UI", 7), fg="#94a3b8", bg="#ffffff"
+        )
+        self.lbl_ink_time.pack(side=tk.RIGHT)
+
+        self.f_ink_bars = tk.Frame(self.card_ink_level, bg="#ffffff")
+        self.f_ink_bars.pack(fill=tk.X, pady=(2, 0))
+
+        self.lbl_ink_empty = tk.Label(
+            self.f_ink_bars, text=tr("ink_waiting"),
+            font=("Segoe UI", 8), fg="#94a3b8", bg="#ffffff", pady=4
+        )
+        self.lbl_ink_empty.pack(fill=tk.X)
+
     def _init_ng_placeholder(self):
         """Menampilkan gambar placeholder saat belum ada kejadian NG"""
         try:
@@ -1297,6 +1332,125 @@ class OmegaBatchApp:
         """Membuka gambar NG dalam ukuran asli saat diklik"""
         if getattr(self, 'current_ng_image_path', None) and os.path.exists(self.current_ng_image_path):
             self.ng_image_manager.open_image_fullscreen(self.current_ng_image_path)
+
+    def _start_ink_polling_thread(self):
+        """Memulai background daemon untuk polling level tinta per 10 menit (600s)"""
+        def _ink_loop():
+            # Jeda awal 3 detik agar GUI utama dan koneksi socket stabil
+            time.sleep(3.0)
+            while True:
+                try:
+                    self.query_ink_levels()
+                except Exception:
+                    pass
+                for _ in range(600):
+                    time.sleep(1.0)
+        t = threading.Thread(target=_ink_loop, daemon=True)
+        t.start()
+
+    def query_ink_levels(self):
+        """Mengambil level persentase tinta seluruh cartridge aktif via INKV"""
+        is_sim = self.check_is_simulation()
+        if is_sim:
+            sim_levels = [
+                {"cartridge": 1, "level": 99.72, "status": "ok"},
+                {"cartridge": 2, "level": 100.0, "status": "ok"}
+            ]
+            self.update_ink_level_ui(sim_levels)
+            return sim_levels
+
+        # Jika batch cetak sedang aktif menembakkan MFD, lewati query ini agar tidak mengganggu jalur transmisi
+        if getattr(self, 'is_printing', False):
+            return getattr(self, 'current_ink_levels', [])
+
+        try:
+            ip = self.ip_addr.get().strip()
+            port = int(self.ip_port.get().strip())
+        except Exception:
+            ip = "192.168.1.101"
+            port = 6008
+
+        levels = self.printer.get_ink_levels(ip, port)
+        self.update_ink_level_ui(levels)
+        return levels
+
+    def update_ink_level_ui(self, levels):
+        """Memperbarui bar level tinta di panel GUI secara thread-safe dan dinamis (2-4 cartridge)"""
+        def _apply():
+            if not hasattr(self, 'f_ink_bars'):
+                return
+            self.current_ink_levels = levels or []
+            now_str = datetime.datetime.now().strftime("%H:%M")
+            self.ink_last_updated = now_str
+
+            if hasattr(self, 'lbl_ink_time'):
+                self.lbl_ink_time.config(text=now_str if levels else "-")
+
+            for widget in self.f_ink_bars.winfo_children():
+                widget.destroy()
+
+            if not levels:
+                lbl_msg = tr("ink_offline") if not self.check_is_simulation() else tr("ink_waiting")
+                lbl = tk.Label(
+                    self.f_ink_bars, text=lbl_msg,
+                    font=("Segoe UI", 8), fg="#94a3b8", bg="#ffffff", pady=4
+                )
+                lbl.pack(fill=tk.X)
+                return
+
+            for item in levels:
+                c_num = item.get("cartridge", 1)
+                lvl = float(item.get("level", 0.0))
+                status = item.get("status", "ok")
+
+                if status == "critical" or lvl < 15.0:
+                    bar_color = "#dc2626"
+                elif status == "warning" or lvl <= 30.0:
+                    bar_color = "#d97706"
+                else:
+                    bar_color = "#16a34a"
+
+                f_row = tk.Frame(self.f_ink_bars, bg="#ffffff")
+                f_row.pack(fill=tk.X, pady=(2, 3))
+
+                f_lbls = tk.Frame(f_row, bg="#ffffff")
+                f_lbls.pack(fill=tk.X)
+
+                lbl_name = tk.Label(
+                    f_lbls, text=f"{tr('lbl_cartridge')} {c_num}",
+                    font=("Segoe UI", 8, "bold"), fg="#334155", bg="#ffffff"
+                )
+                lbl_name.pack(side=tk.LEFT)
+
+                lbl_val = tk.Label(
+                    f_lbls, text=f"{lvl:.1f}%",
+                    font=("Segoe UI", 8, "bold"), fg=bar_color, bg="#ffffff"
+                )
+                lbl_val.pack(side=tk.RIGHT)
+
+                cv = tk.Canvas(f_row, height=8, bg="#f1f5f9", highlightthickness=1, highlightbackground="#e2e8f0", bd=0)
+                cv.pack(fill=tk.X, pady=(2, 0))
+
+                def _draw_bar(canvas=cv, pct=lvl, color=bar_color):
+                    canvas.update_idletasks()
+                    w = canvas.winfo_width()
+                    if w <= 1:
+                        w = 230
+                    fill_w = max(0, min(w, int(w * (pct / 100.0))))
+                    canvas.delete("all")
+                    if fill_w > 0:
+                        canvas.create_rectangle(0, 0, fill_w, 8, fill=color, outline="")
+
+                cv.bind("<Configure>", lambda e, c=cv, p=lvl, clr=bar_color: _draw_bar(c, p, clr))
+                _draw_bar(cv, lvl, bar_color)
+
+        if threading.current_thread() is threading.main_thread():
+            _apply()
+        else:
+            try:
+                self.root.after(0, _apply)
+            except Exception:
+                pass
 
     def _on_ftp_image_received(self, file_path):
         """Callback saat scanner menembakkan foto ke embedded FTP server"""
@@ -2299,6 +2453,7 @@ class OmegaBatchApp:
         """Uji koneksi printer secara non-blocking di worker thread (S2)"""
         if self.is_simulation.get():
             self.log_msg("Test Koneksi Omega MX (Mode Simulasi) - OK")
+            threading.Thread(target=self.query_ink_levels, daemon=True).start()
             messagebox.showinfo("OK", "Printer Online (Mode Simulasi)!", parent=self.root)
         else:
             ip = self.ip_addr.get().strip()
@@ -2309,6 +2464,7 @@ class OmegaBatchApp:
                 def _on_done():
                     if success:
                         self.log_msg("Test Koneksi Omega MX (Aktual) - Berhasil")
+                        threading.Thread(target=self.query_ink_levels, daemon=True).start()
                         messagebox.showinfo("OK", f"Printer Online!\n{msg}", parent=self.root)
                     else:
                         self.log_msg(f"Test Koneksi Omega MX Gagal: {msg}")
@@ -2340,6 +2496,8 @@ class OmegaBatchApp:
                 return "STATUS|1,PLAY"
             elif cmd == "CSTATUS":
                 return f"CSTATUS|{getattr(self, 'current_judgments', 0)},0"
+            elif cmd == "INKV":
+                return "INKV|99.72,100.0"
             return "OK"
 
         try:
@@ -3963,6 +4121,8 @@ class OmegaBatchApp:
                 "current_file": getattr(self, 'current_filename', ''),
                 "current_sku": cur_sku,
                 "batch_start_time": getattr(self, 'batch_start_time', '-'),
+                "ink_levels": getattr(self, 'current_ink_levels', []),
+                "ink_last_updated": getattr(self, 'ink_last_updated', None),
                 "progress": {
                     "print_cycle": cycle_now,
                     "total_target": target_total,
@@ -4620,6 +4780,7 @@ class OmegaBatchApp:
             if hasattr(self, 'btn_web_ana'): self.btn_web_ana.config(text=tr("btn_web_analytics"))
             if hasattr(self, 'lbl_ng_title'): self.lbl_ng_title.config(text=tr("card_last_ng"))
             if hasattr(self, 'lbl_ng_hint'): self.lbl_ng_hint.config(text=tr("ng_click_zoom"))
+            if hasattr(self, 'lbl_ink_title'): self.lbl_ink_title.config(text=tr("card_ink_level"))
 
             if hasattr(self, 'tree'):
                 self.tree.heading("no", text=tr("col_no"))

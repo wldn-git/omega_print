@@ -128,3 +128,63 @@ class OmegaPrinter:
             except Exception:
                 pass
         return -1
+
+    def get_ink_levels(self, ip, port):
+        """
+        Mengambil level persentase tinta seluruh cartridge aktif melalui perintah INKV.
+        Mengembalikan list data cartridge atau list kosong jika gagal / offline.
+        """
+        reply = self.send_and_read(ip, port, "INKV")
+        if reply and not reply.startswith("ERROR_CONN:"):
+            return parse_ink_response(reply)
+        return []
+
+
+def parse_ink_response(reply):
+    """
+    Mem-parsing jawaban perintah INKV dari printer Omega.
+    Contoh balasan:
+    - "INKV|99.0,99.0,99.0,-1\r\n"
+    - "INKVINKV|99.72,100.0"
+    - "INKV|100.0,-1"
+    Nilai -1 menunjukkan tidak ada cartridge terpasang pada slot tersebut.
+    Mengembalikan list dict:
+    [
+        {"cartridge": 1, "level": 99.0, "status": "ok"},
+        {"cartridge": 2, "level": 99.0, "status": "ok"},
+        {"cartridge": 3, "level": 99.0, "status": "ok"}
+    ]
+    Status:
+    - "ok": > 30%
+    - "warning": 15% - 30%
+    - "critical": < 15%
+    """
+    if not reply or not isinstance(reply, str):
+        return []
+    if "|" not in reply:
+        return []
+
+    try:
+        data_part = reply.split("|", 1)[1].strip()
+        tokens = [t.strip() for t in data_part.split(",") if t.strip()]
+        result = []
+        for idx, tok in enumerate(tokens, start=1):
+            try:
+                val = float(tok)
+                # Slot bernilai negatif (seperti -1) menandakan tidak ada cartridge terpasang
+                if val >= 0:
+                    status = "ok"
+                    if val < 15.0:
+                        status = "critical"
+                    elif val <= 30.0:
+                        status = "warning"
+                    result.append({
+                        "cartridge": idx,
+                        "level": round(val, 2),
+                        "status": status
+                    })
+            except ValueError:
+                continue
+        return result
+    except Exception:
+        return []
