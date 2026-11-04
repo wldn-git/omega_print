@@ -3117,9 +3117,9 @@ class OmegaBatchApp:
                 time.sleep(0.4) # Jeda antar-cetak terkontrol
 
             if not getattr(self, 'stop_requested', False):
-                self.log_msg("-> Semua antrean masuk. Mengirim Dummy Data ke Layar...")
-                dummy_payload = "MFD|SKU01:COMPLETE|QRC02:QR Selesai|MAT03:xxxxxxxxx\r\n"
-                self.send_and_read(dummy_payload)
+                self.log_msg("-> Semua antrean masuk. Mengatur Layar Printer ke Tampilan COMPLETE...")
+                complete_payload = "MFD|SKU01:COMPLETE|QRC02:QR Selesai|MAT03:xxxxxxxxx\r\n"
+                self.send_and_read(complete_payload)
                 self.log_msg("INFO: Menunggu proses Scan/Judgement selesai...")
 
                 # Di mode simulasi auto-scan, selesaikan sisa kardus di lintasan sampai antrean tuntas
@@ -3827,9 +3827,9 @@ class OmegaBatchApp:
                         self.log_msg("-> Membersihkan memory/cache (CLR)...")
                         self.send_and_read("CLR")
                         time.sleep(0.5)
-                        self.log_msg("-> Menampilkan Dummy Data (Standby)...")
-                        dummy_payload = "MFD|SKU01:STANDBY|QRC02:QR Selesai|MAT03:xxxxxxxxx\r\n"
-                        self.send_and_read(dummy_payload)
+                        self.log_msg("-> Mengatur Layar Printer ke Tampilan Siaga (STANDBY)...")
+                        standby_payload = "MFD|SKU01:STANDBY|QRC02:QR Selesai|MAT03:xxxxxxxxx\r\n"
+                        self.send_and_read(standby_payload)
                         self.log_msg("-> Mematikan Mode Print (STOP)...")
                         self.send_and_read("STOP")
                     threading.Thread(target=_printer_cleanup, daemon=True).start()
