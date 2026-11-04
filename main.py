@@ -2893,6 +2893,26 @@ class OmegaBatchApp:
         ]
 
         if not items_to_print:
+            # Cek jika terdapat kardus NG yang dapat di-reprint
+            ng_items = [it for it in all_items if 'ng' in self.tree.item(it, 'tags')]
+            if ng_items:
+                if messagebox.askyesno("Reprint NG", f"Semua data normal telah selesai, namun terdapat {len(ng_items)} kardus NG (Reject).\n\nMulai proses REPRINT untuk kardus NG sekarang?", parent=self.root):
+                    self.ng_list = list(ng_items)
+                    self.print_cycle += 1
+                    self.log_msg(f"=== MEMULAI RE-PRINT CYCLE {self.print_cycle} ===")
+                    items_to_reprint = list(self.ng_list)
+                    self.ng_list.clear()
+                    self.count_ng = 0
+                    self.expected_total_judgments = len(items_to_reprint)
+                    self.current_judgments = 0
+                    self.update_live_stats()
+                    self.send_and_read("CLR")
+                    time.sleep(0.3)
+                    self.send_and_read("RESET|2")
+                    time.sleep(0.3)
+                    self.send_and_read("START")
+                    self.do_printing_loop(items_to_reprint)
+                    return
             return messagebox.showwarning("Peringatan", "Semua data telah selesai dicetak & diinspeksi atau merupakan duplikat.")
 
         dup_count = len(all_items) - len(items_to_print)
@@ -2918,9 +2938,12 @@ class OmegaBatchApp:
             self.ng_list.clear()
             self.history_records.clear() 
             self.print_cycle = 1         
-            self.count_ok = 0
-            self.count_ng = 0
-            self.current_judgments = 0
+            # Hitung data yang sebelumnya sudah di-judge agar counter progres akurat dan tidak desync
+            already_ok_items = [it for it in all_items if 'ok' in self.tree.item(it, 'tags')]
+            already_ng_items = [it for it in all_items if 'ng' in self.tree.item(it, 'tags')]
+            self.count_ok = len(already_ok_items)
+            self.count_ng = len(already_ng_items)
+            self.current_judgments = len(already_ok_items) + len(already_ng_items)
             self.batch_start_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             for item in items_to_print:
                 self.tree.item(item, tags=())
