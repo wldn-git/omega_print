@@ -199,6 +199,12 @@ class OmegaBatchApp:
         self.dual_scan_timeout_var = tk.StringVar(value="2000") # Default 2.0 detik
         self._dual_scan_timer_id = None
 
+        # Hardware Disconnect Alarm Tracking (v3.0)
+        self._active_alarm_dialogs = {}
+        self._manual_disconnect_s1 = False
+        self._manual_disconnect_s2 = False
+        self._manual_disconnect_printer = False
+
         # Variabel Penolakan Pneumatik & Timing Rejector (Solusi 4)
         self.ng_boxes_waiting_reject = deque()
         self.last_scanner_sensor_state = False
@@ -880,6 +886,195 @@ class OmegaBatchApp:
             except Exception:
                 pass
 
+    def show_hardware_alarm_popup(self, device_type):
+        """
+        Menampilkan popup alarm modal di tengah layar saat hardware terputus tiba-tiba (v3.0).
+        Dilengkapi suara alarm (bell), info detail perangkat, tombol 'Coba Hubungkan Ulang' dan 'Tutup'.
+        Mencegah spam dialog ganda untuk perangkat yang sama via _active_alarm_dialogs.
+        """
+        if threading.current_thread() is not threading.main_thread():
+            try:
+                self.root.after(0, lambda: self.show_hardware_alarm_popup(device_type))
+            except Exception:
+                pass
+            return
+
+        if not hasattr(self, '_active_alarm_dialogs'):
+            self._active_alarm_dialogs = {}
+
+        # Cek jika dialog untuk perangkat ini sudah aktif dan masih terbuka
+        if device_type in self._active_alarm_dialogs:
+            existing_win = self._active_alarm_dialogs[device_type]
+            try:
+                if existing_win and existing_win.winfo_exists():
+                    existing_win.lift()
+                    existing_win.attributes("-topmost", True)
+                    return
+            except Exception:
+                pass
+
+        # Audio Feedback
+        try:
+            self.root.bell()
+        except Exception:
+            pass
+
+        # Identifikasi perangkat
+        if device_type == "printer":
+            ip = self.ip_addr.get().strip() or "192.168.100.10"
+            port = self.ip_port.get().strip() or "6008"
+            dev_name = tr("dev_name_printer", ip=ip, port=port)
+        elif device_type == "scanner1":
+            ip = self.scanner1_ip.get().strip() or "192.168.100.100"
+            port = self.scanner1_port.get().strip() or "9004"
+            dev_name = tr("dev_name_scanner1", ip=ip, port=port)
+        elif device_type == "scanner2":
+            ip = self.scanner2_ip.get().strip() or "192.168.100.101"
+            port = self.scanner2_port.get().strip() or "9004"
+            dev_name = tr("dev_name_scanner2", ip=ip, port=port)
+        else:
+            dev_name = f"Hardware ({device_type})"
+
+        win = tk.Toplevel(self.root)
+        self._active_alarm_dialogs[device_type] = win
+        win.title(tr("alarm_hw_title"))
+        win.configure(bg="#f8fafc")
+        win.resizable(False, False)
+        win.transient(self.root)
+        try:
+            win.attributes("-topmost", True)
+        except Exception:
+            pass
+
+        win_w = 520
+        win_h = 280
+        win.geometry(f"{win_w}x{win_h}")
+
+        # Posisikan tepat di tengah layar / tengah window utama
+        try:
+            win.update_idletasks()
+            root_x = self.root.winfo_x()
+            root_y = self.root.winfo_y()
+            root_w = self.root.winfo_width()
+            root_h = self.root.winfo_height()
+            if root_w > 100 and root_h > 100:
+                x = max(0, root_x + (root_w - win_w) // 2)
+                y = max(0, root_y + (root_h - win_h) // 2)
+            else:
+                x = max(0, (win.winfo_screenwidth() - win_w) // 2)
+                y = max(0, (win.winfo_screenheight() - win_h) // 2)
+            win.geometry(f"{win_w}x{win_h}+{x}+{y}")
+        except Exception:
+            pass
+
+        def _on_close():
+            self._active_alarm_dialogs.pop(device_type, None)
+            try:
+                win.grab_release()
+            except Exception:
+                pass
+            try:
+                win.destroy()
+            except Exception:
+                pass
+
+        win.protocol("WM_DELETE_WINDOW", _on_close)
+        try:
+            win.grab_set()
+        except Exception:
+            pass
+
+        # 1. Header Merah Alarm
+        top_f = tk.Frame(win, bg="#dc2626", padx=18, pady=12)
+        top_f.pack(fill=tk.X)
+
+        tk.Label(
+            top_f,
+            text=f"⚠  {tr('alarm_hw_title')}",
+            font=("Segoe UI", 11, "bold"),
+            fg="#ffffff",
+            bg="#dc2626"
+        ).pack(anchor="w")
+
+        tk.Label(
+            top_f,
+            text=tr("alarm_hw_subtitle"),
+            font=("Segoe UI", 8),
+            fg="#fee2e2",
+            bg="#dc2626"
+        ).pack(anchor="w", pady=(2, 0))
+
+        # 2. Konten Tengah
+        content_f = tk.Frame(win, bg="#f8fafc", padx=18, pady=12)
+        content_f.pack(fill=tk.BOTH, expand=True)
+
+        card = tk.Frame(
+            content_f, bg="#ffffff",
+            highlightthickness=1, highlightbackground="#fca5a5", highlightcolor="#fca5a5",
+            padx=12, pady=10
+        )
+        card.pack(fill=tk.X, pady=(0, 10))
+
+        h_card = tk.Frame(card, bg="#ffffff")
+        h_card.pack(fill=tk.X)
+
+        lbl_badge = tk.Label(
+            h_card, text="TERPUTUS / OFFLINE",
+            font=("Segoe UI", 8, "bold"),
+            fg="#dc2626", bg="#fee2e2",
+            padx=6, pady=2
+        )
+        lbl_badge.pack(side=tk.LEFT)
+
+        now_str = datetime.datetime.now().strftime("%H:%M:%S")
+        tk.Label(
+            h_card, text=tr("alarm_hw_detected_at", time=now_str),
+            font=("Segoe UI", 8), fg="#64748b", bg="#ffffff"
+        ).pack(side=tk.RIGHT)
+
+        tk.Label(
+            card, text=dev_name,
+            font=("Segoe UI", 11, "bold"),
+            fg="#0f172a", bg="#ffffff"
+        ).pack(anchor="w", pady=(6, 0))
+
+        tk.Label(
+            content_f, text=tr("alarm_hw_desc"),
+            font=("Segoe UI", 8), fg="#475569", bg="#f8fafc",
+            wraplength=480, justify="left"
+        ).pack(anchor="w")
+
+        # 3. Footer Tombol Aksi
+        btn_f = tk.Frame(win, bg="#f8fafc", padx=18, pady=12)
+        btn_f.pack(fill=tk.X, side=tk.BOTTOM)
+
+        def _on_retry():
+            _on_close()
+            if device_type == "printer":
+                self.test_tcp()
+            elif device_type == "scanner1":
+                threading.Thread(target=lambda: self.connect_scanner(1), daemon=True).start()
+            elif device_type == "scanner2":
+                threading.Thread(target=lambda: self.connect_scanner(2), daemon=True).start()
+
+        btn_retry = tk.Button(
+            btn_f, text=tr("btn_retry_connect"),
+            font=("Segoe UI", 9, "bold"),
+            bg="#dc2626", fg="#ffffff", activebackground="#b91c1c", activeforeground="#ffffff",
+            relief="flat", bd=0, padx=16, pady=6, cursor="hand2",
+            command=_on_retry
+        )
+        btn_retry.pack(side=tk.LEFT, padx=(0, 8))
+
+        btn_close = tk.Button(
+            btn_f, text=tr("btn_dismiss_alarm"),
+            font=("Segoe UI", 9),
+            bg="#e2e8f0", fg="#334155", activebackground="#cbd5e1", activeforeground="#0f172a",
+            relief="flat", bd=0, padx=16, pady=6, cursor="hand2",
+            command=_on_close
+        )
+        btn_close.pack(side=tk.LEFT)
+
     # ==========================================
     # MANAJEMEN OTORITAS & SESI USER
     # ==========================================
@@ -1345,11 +1540,10 @@ class OmegaBatchApp:
     def _schedule_hardware_ui_refresh(self):
         """Loop refresh GUI per detik agar lampu indikator hardware di header selalu sinkron real-time"""
         try:
+            if not hasattr(self, 'root') or not self.root.winfo_exists():
+                return
             self.update_hardware_indicators()
-        except Exception:
-            pass
-        try:
-            self.root.after(1000, self._schedule_hardware_ui_refresh)
+            self._refresh_timer_id = self.root.after(1000, self._schedule_hardware_ui_refresh)
         except Exception:
             pass
 
@@ -1378,6 +1572,8 @@ class OmegaBatchApp:
 
                         if prev_status and not is_online:
                             self.log_msg(f"[ALARM PRINTER] Koneksi ke Printer Omega MX ({ip}:{port}) Terputus! ({rep})")
+                            if not getattr(self, '_manual_disconnect_printer', False):
+                                self.root.after(0, lambda: self.show_hardware_alarm_popup("printer"))
                         elif not prev_status and is_online:
                             self.log_msg(f"[PRINTER] Printer Omega MX ({ip}:{port}) Terhubung (Aktif).")
                     elif self.check_is_simulation():
@@ -2530,6 +2726,11 @@ class OmegaBatchApp:
     # ==========================================
     def test_tcp(self):
         """Uji koneksi printer secara non-blocking di worker thread (S2)"""
+        if scanner_id == 1:
+            self._manual_disconnect_s1 = False
+        else:
+            self._manual_disconnect_s2 = False
+
         if self.is_simulation.get():
             self.log_msg("Test Koneksi Omega MX (Mode Simulasi) - OK")
             threading.Thread(target=self.query_ink_levels, daemon=True).start()
@@ -2592,6 +2793,11 @@ class OmegaBatchApp:
         
         if reply.startswith("ERROR_CONN:"):
             self.log_msg(f"ERROR KONEKSI PRINTER: {reply}")
+            prev_status = getattr(self, 'printer_connected', False)
+            self.printer_connected = False
+            self.update_hardware_indicators()
+            if prev_status and not getattr(self, '_manual_disconnect_printer', False):
+                self.root.after(0, lambda: self.show_hardware_alarm_popup("printer"))
             return None
         return reply
 
@@ -3061,12 +3267,14 @@ class OmegaBatchApp:
         """Memutus koneksi Scanner Keyence 1 atau 2"""
         side_name = "Sisi A" if scanner_id == 1 else "Sisi B"
         if scanner_id == 1:
+            self._manual_disconnect_s1 = True
             self.is_listening1 = False
             if self.scanner1_socket:
                 try: self.scanner1_socket.close()
                 except Exception: pass
                 self.scanner1_socket = None
         else:
+            self._manual_disconnect_s2 = True
             self.is_listening2 = False
             if self.scanner2_socket:
                 try: self.scanner2_socket.close()
@@ -3121,6 +3329,9 @@ class OmegaBatchApp:
                     else: self.is_listening2 = False
                     self.update_scanner_ui_status(scanner_id)
                     self.update_hardware_indicators()
+                    was_manual = getattr(self, f"_manual_disconnect_s{scanner_id}", False)
+                    if not was_manual:
+                        self.root.after(0, lambda sid=scanner_id: self.show_hardware_alarm_popup(f"scanner{sid}"))
                     break
                 
                 buffer += chunk.decode('utf-8', errors='ignore')
@@ -3143,6 +3354,9 @@ class OmegaBatchApp:
                 else: self.is_listening2 = False
                 self.update_scanner_ui_status(scanner_id)
                 self.update_hardware_indicators()
+                was_manual = getattr(self, f"_manual_disconnect_s{scanner_id}", False)
+                if is_active and not was_manual:
+                    self.root.after(0, lambda sid=scanner_id: self.show_hardware_alarm_popup(f"scanner{sid}"))
                 break
 
     def _cancel_dual_scan_timer(self):

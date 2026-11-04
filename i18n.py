@@ -84,6 +84,17 @@ TRANSLATIONS = {
         "ink_critical": "Tinta Menipis!",
         "ink_updated": "Diperbarui: {time}",
 
+        # --- Alarm Hardware Disconnect (v3.0) ---
+        "alarm_hw_title": "PERINGATAN: KONEKSI PERANGKAT TERPUTUS",
+        "alarm_hw_subtitle": "Sinyal Koneksi Perangkat Hilang",
+        "alarm_hw_desc": "Koneksi jaringan ke perangkat terputus tiba-tiba. Periksa kabel LAN, switch ethernet, dan pastikan daya perangkat aktif.",
+        "alarm_hw_detected_at": "Terdeteksi pada: {time}",
+        "btn_retry_connect": "Coba Hubungkan Ulang",
+        "btn_dismiss_alarm": "Tutup / Abaikan",
+        "dev_name_printer": "Printer Omega MX ({ip}:{port})",
+        "dev_name_scanner1": "Scanner Keyence Sisi A ({ip}:{port})",
+        "dev_name_scanner2": "Scanner Keyence Sisi B ({ip}:{port})",
+
         # --- Table Row Statuses ---
         "st_err_empty_qr": "Error: QR Kosong",
         "st_qc_ok_restored": "QC OK (Dipulihkan)",
@@ -382,6 +393,17 @@ TRANSLATIONS = {
         "ink_offline": "Printer Offline",
         "ink_critical": "Low Ink Warning!",
         "ink_updated": "Updated: {time}",
+
+        # --- Alarm Hardware Disconnect (v3.0) ---
+        "alarm_hw_title": "WARNING: HARDWARE DISCONNECTED",
+        "alarm_hw_subtitle": "Hardware Connection Signal Lost",
+        "alarm_hw_desc": "Network connection to device was lost unexpectedly. Check LAN cable, network switch, and ensure device power is ON.",
+        "alarm_hw_detected_at": "Detected at: {time}",
+        "btn_retry_connect": "Retry Connection",
+        "btn_dismiss_alarm": "Dismiss",
+        "dev_name_printer": "Omega MX Printer ({ip}:{port})",
+        "dev_name_scanner1": "Keyence Scanner Side A ({ip}:{port})",
+        "dev_name_scanner2": "Keyence Scanner Side B ({ip}:{port})",
 
         # --- Table Row Statuses ---
         "st_err_empty_qr": "Error: Empty QR",

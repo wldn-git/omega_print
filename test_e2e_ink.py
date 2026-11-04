@@ -18,6 +18,11 @@ class TestE2EInkMonitoring(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         try:
+            if hasattr(cls.app, '_refresh_timer_id') and cls.app._refresh_timer_id:
+                cls.root.after_cancel(cls.app._refresh_timer_id)
+        except Exception:
+            pass
+        try:
             if hasattr(cls, 'test_cache_file') and os.path.exists(cls.test_cache_file):
                 os.remove(cls.test_cache_file)
         except Exception:
