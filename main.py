@@ -79,8 +79,9 @@ class OmegaBatchApp:
             self.log_msg(f"[FTP SERVICE] {msg}")
         threading.Thread(target=_bg_ftp_init, daemon=True).start()
         self.current_user = None
-        self.current_ink_levels = []
-        self.ink_last_updated = None
+        # Muat cache level tinta terakhir yang tersimpan di disk
+        self.current_ink_levels, self.ink_last_updated = self.data_manager.load_last_ink_levels()
+        self.ink_is_online = False
         self._start_ink_polling_thread()
         # --- FIX IKON TASKBAR (AppUserModelID) ---
         try:
@@ -1315,6 +1316,8 @@ class OmegaBatchApp:
             font=("Segoe UI", 8), fg="#94a3b8", bg="#ffffff", pady=4
         )
         self.lbl_ink_empty.pack(fill=tk.X)
+        if self.current_ink_levels:
+            self.update_ink_level_ui(self.current_ink_levels, is_online=False)
 
     def _init_ng_placeholder(self):
         """Menampilkan gambar placeholder saat belum ada kejadian NG"""
@@ -1349,16 +1352,11 @@ class OmegaBatchApp:
         t.start()
 
     def query_ink_levels(self):
-        """Mengambil level persentase tinta seluruh cartridge aktif via INKV"""
-        is_sim = self.check_is_simulation()
-        if is_sim:
-            sim_levels = [
-                {"cartridge": 1, "level": 99.72, "status": "ok"},
-                {"cartridge": 2, "level": 100.0, "status": "ok"}
-            ]
-            self.update_ink_level_ui(sim_levels)
-            return sim_levels
-
+        """
+        Mengambil level persentase tinta seluruh cartridge aktif via INKV.
+        - Jika printer terhubung: perbarui data dan simpan ke disk sebagai data terakhir.
+        - Jika printer terputus (offline): pertahankan & tampilkan data riil terakhir dengan tanda (Offline).
+        """
         # Jika batch cetak sedang aktif menembakkan MFD, lewati query ini agar tidak mengganggu jalur transmisi
         if getattr(self, 'is_printing', False):
             return getattr(self, 'current_ink_levels', [])
@@ -1367,30 +1365,58 @@ class OmegaBatchApp:
             ip = self.ip_addr.get().strip()
             port = int(self.ip_port.get().strip())
         except Exception:
-            ip = "192.168.1.101"
+            ip = "192.168.100.10"
             port = 6008
 
         levels = self.printer.get_ink_levels(ip, port)
-        self.update_ink_level_ui(levels)
-        return levels
+        if levels:
+            now_str = datetime.datetime.now().strftime("%H:%M")
+            self.current_ink_levels = levels
+            self.ink_last_updated = now_str
+            self.ink_is_online = True
+            try:
+                self.data_manager.save_last_ink_levels(levels, now_str)
+            except Exception:
+                pass
+            self.update_ink_level_ui(levels, is_online=True)
+            return levels
+        else:
+            # Gagal connect / offline: pertahankan data riil terakhir yang tersimpan jika ada
+            self.ink_is_online = False
+            if not getattr(self, 'current_ink_levels', None):
+                try:
+                    c_levels, c_time = self.data_manager.load_last_ink_levels()
+                    if c_levels:
+                        self.current_ink_levels = c_levels
+                        self.ink_last_updated = c_time
+                except Exception:
+                    pass
+            self.update_ink_level_ui(getattr(self, 'current_ink_levels', []), is_online=False)
+            return getattr(self, 'current_ink_levels', [])
 
-    def update_ink_level_ui(self, levels):
+    def update_ink_level_ui(self, levels, is_online=True):
         """Memperbarui bar level tinta di panel GUI secara thread-safe dan dinamis (2-4 cartridge)"""
         def _apply():
             if not hasattr(self, 'f_ink_bars'):
                 return
             self.current_ink_levels = levels or []
-            now_str = datetime.datetime.now().strftime("%H:%M")
-            self.ink_last_updated = now_str
+            self.ink_is_online = is_online
 
             if hasattr(self, 'lbl_ink_time'):
-                self.lbl_ink_time.config(text=now_str if levels else "-")
+                if not levels:
+                    self.lbl_ink_time.config(text=tr("ink_offline") if not is_online else "-")
+                else:
+                    t_str = self.ink_last_updated or datetime.datetime.now().strftime("%H:%M")
+                    if is_online:
+                        self.lbl_ink_time.config(text=t_str)
+                    else:
+                        self.lbl_ink_time.config(text=f"{t_str} (Offline)")
 
             for widget in self.f_ink_bars.winfo_children():
                 widget.destroy()
 
             if not levels:
-                lbl_msg = tr("ink_offline") if not self.check_is_simulation() else tr("ink_waiting")
+                lbl_msg = tr("ink_offline") if not is_online else tr("ink_waiting")
                 lbl = tk.Label(
                     self.f_ink_bars, text=lbl_msg,
                     font=("Segoe UI", 8), fg="#94a3b8", bg="#ffffff", pady=4
@@ -4123,6 +4149,7 @@ class OmegaBatchApp:
                 "batch_start_time": getattr(self, 'batch_start_time', '-'),
                 "ink_levels": getattr(self, 'current_ink_levels', []),
                 "ink_last_updated": getattr(self, 'ink_last_updated', None),
+                "ink_is_online": getattr(self, 'ink_is_online', False),
                 "progress": {
                     "print_cycle": cycle_now,
                     "total_target": target_total,

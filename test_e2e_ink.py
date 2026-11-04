@@ -1,4 +1,5 @@
 # test_e2e_ink.py
+import os
 import unittest
 import tkinter as tk
 from unittest.mock import MagicMock
@@ -33,7 +34,7 @@ class TestE2EInkMonitoring(unittest.TestCase):
             {"cartridge": 1, "level": 99.72, "status": "ok"},
             {"cartridge": 2, "level": 100.0, "status": "ok"}
         ]
-        self.app.update_ink_level_ui(two_cartridges)
+        self.app.update_ink_level_ui(two_cartridges, is_online=True)
         self.root.update()
 
         # Harus ada 2 widget baris di dalam f_ink_bars
@@ -48,7 +49,7 @@ class TestE2EInkMonitoring(unittest.TestCase):
         raw_reply = "INKV|99.0,85.5,12.0,-1\r\n"
         parsed = parse_ink_response(raw_reply)
         self.assertEqual(len(parsed), 3) # slot -1 diabaikan
-        self.app.update_ink_level_ui(parsed)
+        self.app.update_ink_level_ui(parsed, is_online=True)
         self.root.update()
 
         rows = self.app.f_ink_bars.winfo_children()
@@ -56,12 +57,30 @@ class TestE2EInkMonitoring(unittest.TestCase):
         self.assertEqual(self.app.current_ink_levels[2]["status"], "critical") # 12.0% < 15.0%
 
     def test_04_telemetry_payload_contains_ink(self):
-        """Verifikasi telemetri /api/v1/status menyertakan data level tinta"""
+        """Verifikasi telemetri /api/v1/status menyertakan data level tinta dan status online"""
         status_dict = self.app.get_system_status_dict()
         self.assertIn("ink_levels", status_dict)
         self.assertIn("ink_last_updated", status_dict)
-        self.assertEqual(len(status_dict["ink_levels"]), 3)
+        self.assertIn("ink_is_online", status_dict)
+
+    def test_05_persistence_and_offline_display(self):
+        """Verifikasi data terakhir disimpan ke disk dan ditampilkan dengan status Offline saat printer terputus"""
+        sample_levels = [
+            {"cartridge": 1, "level": 88.5, "status": "ok"},
+            {"cartridge": 2, "level": 92.0, "status": "ok"}
+        ]
+        # Simpan ke cache
+        self.app.data_manager.save_last_ink_levels(sample_levels, "10:30")
+        
+        # Load ulang dari disk
+        loaded, l_time = self.app.data_manager.load_last_ink_levels()
+        self.assertEqual(len(loaded), 2)
+        self.assertEqual(l_time, "10:30")
+
+        # Tampilkan sebagai offline
+        self.app.update_ink_level_ui(loaded, is_online=False)
+        self.root.update()
+        self.assertIn("(Offline)", self.app.lbl_ink_time.cget("text"))
 
 if __name__ == "__main__":
     unittest.main()
-

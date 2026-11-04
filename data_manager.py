@@ -13,6 +13,7 @@ class DataManager:
         self.data_dir = data_dir if data_dir else os.path.join(self.base_dir, "data")
         self.checkpoint_dir = os.path.join(self.history_dir, "checkpoints")
         self.config_file = os.path.join(self.data_dir, "config.json")
+        self.ink_cache_file = os.path.join(self.data_dir, "ink_cache.json")
 
         os.makedirs(self.history_dir, exist_ok=True)
         os.makedirs(self.log_dir, exist_ok=True)
@@ -25,6 +26,34 @@ class DataManager:
         self.bulan_indo = {1:"Januari", 2:"Februari", 3:"Maret", 4:"April", 5:"Mei", 6:"Juni", 
                            7:"Juli", 8:"Agustus", 9:"September", 10:"Oktober", 11:"November", 12:"Desember"}
         self.ensure_coupon_index()
+
+    def load_last_ink_levels(self):
+        """Memuat data level tinta terakhir yang tersimpan di disk"""
+        if not hasattr(self, 'ink_cache_file'):
+            self.ink_cache_file = os.path.join(self.data_dir, "ink_cache.json")
+        if not os.path.exists(self.ink_cache_file):
+            return [], None
+        try:
+            with open(self.ink_cache_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get("levels", []), data.get("last_updated", None)
+        except Exception as e:
+            print(f"Error loading ink_cache.json: {e}")
+            return [], None
+
+    def save_last_ink_levels(self, levels, timestamp):
+        """Menyimpan data level tinta terakhir ke disk secara aman & atomik"""
+        if not hasattr(self, 'ink_cache_file'):
+            self.ink_cache_file = os.path.join(self.data_dir, "ink_cache.json")
+        try:
+            temp_file = os.path.join(self.data_dir, f"temp_ink_{int(time.time()*1000)}.json")
+            with open(temp_file, 'w', encoding='utf-8') as f:
+                json.dump({"levels": levels, "last_updated": timestamp}, f, indent=4)
+            os.replace(temp_file, self.ink_cache_file)
+            return True
+        except Exception as e:
+            print(f"Error saving ink_cache.json: {e}")
+            return False
 
     def load_config(self):
         """Memuat konfigurasi hardware & sistem dari data/config.json"""

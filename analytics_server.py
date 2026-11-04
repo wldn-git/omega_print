@@ -1588,11 +1588,20 @@ class AnalyticsServer:
             document.getElementById('countOk').innerText = okCnt;
             document.getElementById('countNg').innerText = ngCnt;
 
-            // Level Tinta Cartridge (Dinamis)
+            // Level Tinta Cartridge (Dinamis & Persistence)
             const inkLevels = s.ink_levels || [];
             const inkTime = s.ink_last_updated || '-';
+            const inkOnline = s.ink_is_online === true;
             const elInkTime = document.getElementById('inkLastUpdated');
-            if (elInkTime) elInkTime.innerText = inkTime !== '-' ? `${wtr('inkUpdated')} ${inkTime}` : '-';
+            if (elInkTime) {
+                if (inkTime !== '-') {
+                    elInkTime.innerText = inkOnline 
+                        ? `${wtr('inkUpdated')} ${inkTime}` 
+                        : `${wtr('inkUpdated')} ${inkTime} (${wtr('hwDisc')})`;
+                } else {
+                    elInkTime.innerText = '-';
+                }
+            }
 
             const elInkBars = document.getElementById('inkBarsList');
             if (elInkBars) {

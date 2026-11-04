@@ -28,3 +28,4 @@ data/users.json
 Thumbs.db
 .vscode/
 .idea/
+data/ink_cache.json
