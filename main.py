@@ -199,10 +199,12 @@ class OmegaBatchApp:
         self.dual_scan_timeout_var = tk.StringVar(value="2000") # Default 2.0 detik
         self._dual_scan_timer_id = None
 
-        # Hardware Disconnect Alarm Tracking (v3.0)
+        # Hardware Disconnect Alarm & Auto-Reconnect Tracking (v3.0)
         self._active_alarm_dialogs = {}
         self._manual_disconnect_s1 = False
         self._manual_disconnect_s2 = False
+        self._scanner1_auto_reconnect_enabled = False
+        self._scanner2_auto_reconnect_enabled = False
         self._manual_disconnect_printer = False
 
         # Variabel Penolakan Pneumatik & Timing Rejector (Solusi 4)
@@ -1075,6 +1077,28 @@ class OmegaBatchApp:
         )
         btn_close.pack(side=tk.LEFT)
 
+    def _dismiss_alarm_popup(self, device_type):
+        """Menutup popup alarm hardware tertentu secara otomatis saat terhubung kembali (v3.0)"""
+        def _do_dismiss():
+            if hasattr(self, '_active_alarm_dialogs') and device_type in self._active_alarm_dialogs:
+                win = self._active_alarm_dialogs.pop(device_type, None)
+                if win:
+                    try:
+                        win.grab_release()
+                    except Exception:
+                        pass
+                    try:
+                        win.destroy()
+                    except Exception:
+                        pass
+        if threading.current_thread() is threading.main_thread():
+            _do_dismiss()
+        else:
+            try:
+                self.root.after(0, _do_dismiss)
+            except Exception:
+                pass
+
     # ==========================================
     # MANAJEMEN OTORITAS & SESI USER
     # ==========================================
@@ -1552,12 +1576,14 @@ class OmegaBatchApp:
         Watchdog background thread:
         Memantau koneksi aktual printer (Heartbeat STATUS) dan scanner secara berkala (tiap 3 detik).
         Mendeteksi kabel lepas seketika dan memperbarui status sistem secara real-time.
+        Dilengkapi filter debounce printer dan daemon auto-reconnect untuk scanner Keyence (v3.0).
         """
         def _watchdog_loop():
             time.sleep(2.0)
+            printer_fail_count = 0
             while True:
                 try:
-                    # Cek printer hanya jika tidak sedang sibuk mencetak batch MFD
+                    # 1. Pantau Printer Omega MX dengan Filter Debounce (2x kegagalan berturut-turut)
                     if not getattr(self, 'is_printing', False) and not self.check_is_simulation():
                         try:
                             ip = self.ip_addr.get().strip()
@@ -1567,17 +1593,46 @@ class OmegaBatchApp:
                             port = 6008
 
                         is_online, rep = self.printer.check_status(ip, port)
-                        prev_status = getattr(self, 'printer_connected', False)
-                        self.printer_connected = is_online
-
-                        if prev_status and not is_online:
-                            self.log_msg(f"[ALARM PRINTER] Koneksi ke Printer Omega MX ({ip}:{port}) Terputus! ({rep})")
-                            if not getattr(self, '_manual_disconnect_printer', False):
-                                self.root.after(0, lambda: self.show_hardware_alarm_popup("printer"))
-                        elif not prev_status and is_online:
-                            self.log_msg(f"[PRINTER] Printer Omega MX ({ip}:{port}) Terhubung (Aktif).")
+                        if is_online:
+                            printer_fail_count = 0
+                            if not getattr(self, 'printer_connected', False):
+                                self.printer_connected = True
+                                self.log_msg(f"[PRINTER] Printer Omega MX ({ip}:{port}) Terhubung (Aktif).")
+                                self._dismiss_alarm_popup("printer")
+                        else:
+                            printer_fail_count += 1
+                            if printer_fail_count >= 2 and getattr(self, 'printer_connected', False):
+                                self.printer_connected = False
+                                self.log_msg(f"[ALARM PRINTER] Koneksi ke Printer Omega MX ({ip}:{port}) Terputus! ({rep})")
+                                if not getattr(self, '_manual_disconnect_printer', False):
+                                    self.root.after(0, lambda: self.show_hardware_alarm_popup("printer"))
                     elif self.check_is_simulation():
                         self.printer_connected = True
+
+                    # 2. Pantau & Auto-Reconnect Scanner Keyence 1 (Sisi A)
+                    if (getattr(self, '_scanner1_auto_reconnect_enabled', False) and 
+                        not getattr(self, 'is_listening1', False) and 
+                        not getattr(self, '_manual_disconnect_s1', False) and 
+                        not self.check_is_simulation()):
+                        try:
+                            if self.connect_scanner(1, silent=True):
+                                self.log_msg("[AUTO-RECONNECT] Scanner 1 (Sisi A) Terhubung Kembali Secara Otomatis.")
+                                self._dismiss_alarm_popup("scanner1")
+                        except Exception:
+                            pass
+
+                    # 3. Pantau & Auto-Reconnect Scanner Keyence 2 (Sisi B)
+                    if (getattr(self, '_scanner2_auto_reconnect_enabled', False) and 
+                        not getattr(self, 'is_listening2', False) and 
+                        not getattr(self, '_manual_disconnect_s2', False) and 
+                        not self.check_is_simulation()):
+                        try:
+                            if self.connect_scanner(2, silent=True):
+                                self.log_msg("[AUTO-RECONNECT] Scanner 2 (Sisi B) Terhubung Kembali Secara Otomatis.")
+                                self._dismiss_alarm_popup("scanner2")
+                        except Exception:
+                            pass
+
                 except Exception:
                     pass
                 time.sleep(3.0)
@@ -2728,8 +2783,10 @@ class OmegaBatchApp:
         """Uji koneksi printer secara non-blocking di worker thread (S2)"""
         if scanner_id == 1:
             self._manual_disconnect_s1 = False
+            self._scanner1_auto_reconnect_enabled = True
         else:
             self._manual_disconnect_s2 = False
+            self._scanner2_auto_reconnect_enabled = True
 
         if self.is_simulation.get():
             self.log_msg("Test Koneksi Omega MX (Mode Simulasi) - OK")
@@ -2937,7 +2994,7 @@ class OmegaBatchApp:
                 pass
 
     def stop_batch_print(self):
-        """Meminta penghentian proses cetak batch oleh operator"""
+        """Meminta penghentian proses cetak batch oleh operator dan sinkronisasi antrean (v3.0)"""
         if getattr(self, 'is_printing', False):
             if messagebox.askyesno("Konfirmasi Stop", "Hentikan pengiriman antrean cetak batch ke printer?"):
                 self.stop_requested = True
@@ -2947,9 +3004,31 @@ class OmegaBatchApp:
                 self.ng_boxes_waiting_reject.clear()
                 self.log_msg("-> [STOP] Operator menghentikan proses cetak batch.")
                 self.save_current_checkpoint()
-                self.send_and_read("STOP")
                 self.set_system_status("STOPPED")
                 self._sync_pause_button_ui()
+
+                # 1. Reset antrean GUI secara instan di main thread
+                for it in list(getattr(self, 'waiting_queue', [])):
+                    try:
+                        if 'ok' not in self.tree.item(it, 'tags') and 'ng' not in self.tree.item(it, 'tags'):
+                            self.tree.item(it, tags=())
+                            self.tree.set(it, "status", tr("st_ready_print"))
+                    except Exception:
+                        pass
+                self.waiting_queue.clear()
+                self.log_msg("-> Antrean hardware printer dibersihkan dan data belum ter-scan dikembalikan ke Siap Cetak.")
+
+                # 2. Kirim sinyal STOP, CLR, RESET|2 ke printer di background thread
+                def _do_stop_and_purge():
+                    try:
+                        self.send_and_read("STOP")
+                        time.sleep(0.3)
+                        self.send_and_read("CLR")
+                        time.sleep(0.3)
+                        self.send_and_read("RESET|2")
+                    except Exception:
+                        pass
+                threading.Thread(target=_do_stop_and_purge, daemon=True).start()
 
     def _restore_print_buttons(self):
         """Mengembalikan status tombol print di GUI"""
@@ -2982,9 +3061,11 @@ class OmegaBatchApp:
                 self.expected_total_judgments = getattr(self, 'total_valid_print_data', len(items_to_print))
                 self.current_judgments = 0
 
-            # Eksekusi pemanasan / start mesin
+            # Eksekusi pemanasan / start mesin dengan jeda aman antar-perintah
             self.send_and_read("CLR")
+            time.sleep(0.3)
             self.send_and_read("RESET|2")
+            time.sleep(0.3)
             self.send_and_read("START")
             self.log_msg("-> [!] Trigger START dikirim (Mesin running).")
             time.sleep(0.5)
@@ -3230,10 +3311,16 @@ class OmegaBatchApp:
 
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            if hasattr(socket, 'TCP_KEEPCNT'):
+                try:
+                    # Putuskan soket setelah 2 kali probe gagal (~2-3 detik)
+                    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 2)
+                except Exception:
+                    pass
             if hasattr(socket, 'SIO_KEEPALIVE_VALS'):
                 try:
-                    # Windows TCP KeepAlive: aktif (1), waktu tunggu 2000ms, interval probe 1000ms
-                    sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 2000, 1000))
+                    # Windows TCP KeepAlive: aktif (1), idle 1000ms, probe interval 1000ms
+                    sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 1000, 1000))
                 except Exception:
                     pass
             sock.settimeout(2.5)
@@ -3268,6 +3355,7 @@ class OmegaBatchApp:
         side_name = "Sisi A" if scanner_id == 1 else "Sisi B"
         if scanner_id == 1:
             self._manual_disconnect_s1 = True
+            self._scanner1_auto_reconnect_enabled = False
             self.is_listening1 = False
             if self.scanner1_socket:
                 try: self.scanner1_socket.close()
@@ -3275,6 +3363,7 @@ class OmegaBatchApp:
                 self.scanner1_socket = None
         else:
             self._manual_disconnect_s2 = True
+            self._scanner2_auto_reconnect_enabled = False
             self.is_listening2 = False
             if self.scanner2_socket:
                 try: self.scanner2_socket.close()

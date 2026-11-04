@@ -76,16 +76,22 @@ class OmegaPrinter:
 
     def check_status(self, ip, port):
         """
-        Pengecekan ringan status online printer menggunakan perintah STATUS (Watchdog).
-        Format sukses: STATUS|0,0 atau STATUS|1,0
-        Format gagal: STATUS |EER atau timeout / connection error
+        Pengecekan status online printer menggunakan perintah STATUS (Watchdog).
+        Format sukses: STATUS|0,0, STATUS|1,0, atau COMD|... (printer merespons, socket TCP aktif).
+        Format gagal: STATUS |EER atau timeout / connection error (ERROR_CONN:...).
         Mengembalikan tuple: (is_online: bool, reply: str)
         """
         try:
             reply = self.send_and_read(ip, port, "STATUS")
-            if reply and not reply.startswith("ERROR_CONN:") and "EER" not in reply.upper() and ("STATUS|" in reply or "STATUS |" in reply):
-                return True, reply
-            return False, reply or "NO_REPLY"
+            if not reply:
+                return False, "NO_REPLY"
+            if reply.startswith("ERROR_CONN:"):
+                return False, reply
+            if "EER" in reply.upper():
+                return False, reply
+            # Jika printer merespons string apa pun (STATUS|..., COMD|ERR, COMD|OK),
+            # ini membuktikan bahwa perangkat keras dan kabel fisik TCP 100% terhubung & aktif!
+            return True, reply
         except Exception as e:
             return False, str(e)
 

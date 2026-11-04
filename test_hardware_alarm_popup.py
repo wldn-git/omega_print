@@ -147,5 +147,33 @@ class TestHardwareAlarmPopup(unittest.TestCase):
 
         self.assertNotIn("scanner2", self.app._active_alarm_dialogs)
 
+    def test_06_auto_dismiss_alarm_popup(self):
+        """Verifikasi _dismiss_alarm_popup menutup dialog secara otomatis saat hardware pulih"""
+        self.app.show_hardware_alarm_popup("printer")
+        self.root.update()
+        self.assertIn("printer", self.app._active_alarm_dialogs)
+
+        self.app._dismiss_alarm_popup("printer")
+        self.root.update()
+        self.assertNotIn("printer", self.app._active_alarm_dialogs)
+
+    def test_07_stop_batch_clears_waiting_queue(self):
+        """Verifikasi stop_batch_print membersihkan item waiting di GUI dan buffer"""
+        # Masukkan item dummy ke waiting_queue
+        item_id = self.app.tree.insert("", "end", values=("1", "SKU1", "QR1", "MAT1", "Antrean Cetak"), tags=('waiting',))
+        self.app.waiting_queue.append(item_id)
+        self.app.is_printing = True
+
+        with patch.object(self.app, 'send_and_read', return_value="OK"), \
+             patch('main.messagebox.askyesno', return_value=True):
+            self.app.stop_batch_print()
+            for _ in range(20):
+                self.root.update()
+                if len(self.app.waiting_queue) == 0:
+                    break
+                time.sleep(0.1)
+            self.assertEqual(len(self.app.waiting_queue), 0)
+        self.assertIn(self.app.tree.item(item_id, 'tags'), [(), '', []])
+
 if __name__ == "__main__":
     unittest.main()

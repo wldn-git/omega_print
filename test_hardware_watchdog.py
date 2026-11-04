@@ -34,6 +34,14 @@ class TestHardwareWatchdog(unittest.TestCase):
         is_online, reply = self.printer.check_status("192.168.100.10", 6008)
         self.assertFalse(is_online)
 
+    @patch.object(OmegaPrinter, 'send_and_read')
+    def test_printer_status_busy_comd_err_is_online(self, mock_send):
+        # Respons printer COMD|ERR menandakan printer sibuk/proses perintah lain, socket fisik online 100%
+        mock_send.return_value = "COMD|ERR\r\n"
+        is_online, reply = self.printer.check_status("192.168.100.10", 6008)
+        self.assertTrue(is_online)
+        self.assertIn("COMD|ERR", reply)
+
 if __name__ == "__main__":
     unittest.main()
 
