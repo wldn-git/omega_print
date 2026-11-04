@@ -217,11 +217,11 @@ class NGImageManager:
                 img = raw_img.convert("RGB")
 
             w, h = img.size
-            # Banner proporsional terhadap resolusi (minimal 75px, maks 130px)
-            banner_h = max(75, min(130, int(h * 0.16)))
+            # Banner proporsional terhadap resolusi (minimal 90px, maks 160px)
+            banner_h = max(90, min(160, int(h * 0.18)))
 
             # Semi-transparent dark overlay (Slate 900)
-            overlay = Image.new("RGBA", (w, banner_h), (15, 23, 42, 235))
+            overlay = Image.new("RGBA", (w, banner_h), (15, 23, 42, 240))
             img.paste(overlay, (0, h - banner_h), overlay)
 
             draw = ImageDraw.Draw(img)
@@ -229,9 +229,9 @@ class NGImageManager:
             accent_width = max(2, int(w * 0.003))
             draw.line([(0, h - banner_h), (w, h - banner_h)], fill=(220, 38, 38), width=accent_width)
 
-            # Dynamic font sizing berdasarkan resolusi gambar
-            base_size = max(11, min(20, int(w / 48)))
-            small_size = max(10, min(16, int(w / 62)))
+            # Dynamic font sizing berdasarkan resolusi gambar (lebih besar, tebal & kontras)
+            base_size = max(13, min(24, int(w / 40)))
+            small_size = max(11, min(18, int(w / 50)))
             try:
                 font_bold = ImageFont.truetype("segoeuib.ttf", base_size)
                 font_regular = ImageFont.truetype("segoeui.ttf", small_size)

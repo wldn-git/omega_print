@@ -136,8 +136,11 @@ class TestNGWatermark(unittest.TestCase):
 
         self.assertEqual(self.app.lbl_ng_badge.cget("text"), "SIDE A : MISMATCH")
         self.assertIn("Box #12", self.app.lbl_ng_info.cget("text"))
+        self.assertEqual(self.app.lbl_ng_qr.cget("text"), "Coupon QR: TEST-QR")
+        self.assertEqual(self.app.lbl_ng_mat.cget("text"), "Material Code: TEST-MAT")
         self.assertIsNotNone(self.app.current_ng_image_path)
         self.assertTrue(os.path.exists(self.app.current_ng_image_path))
 
 if __name__ == "__main__":
     unittest.main()
+

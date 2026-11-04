@@ -1493,11 +1493,27 @@ class OmegaBatchApp:
         )
         self.lbl_ng_badge.pack(side=tk.RIGHT)
 
+        # Box info metadata lengkap (Box #, SKU, Coupon QR, Material Code)
+        f_ng_meta = tk.Frame(self.card_last_ng, bg="#f8fafc", padx=8, pady=5, highlightthickness=1, highlightbackground="#e2e8f0")
+        f_ng_meta.pack(fill=tk.X, pady=(0, 4))
+
         self.lbl_ng_info = tk.Label(
-            self.card_last_ng, text="-",
-            font=("Segoe UI", 8), fg="#64748b", bg="#ffffff", anchor="w"
+            f_ng_meta, text="Box #- | SKU: - | --:--:--",
+            font=("Segoe UI", 8, "bold"), fg="#0f172a", bg="#f8fafc", anchor="w"
         )
-        self.lbl_ng_info.pack(fill=tk.X, pady=(0, 4))
+        self.lbl_ng_info.pack(fill=tk.X)
+
+        self.lbl_ng_qr = tk.Label(
+            f_ng_meta, text="Coupon QR: -",
+            font=("Segoe UI", 8, "bold"), fg="#dc2626", bg="#f8fafc", anchor="w"
+        )
+        self.lbl_ng_qr.pack(fill=tk.X, pady=(2, 0))
+
+        self.lbl_ng_mat = tk.Label(
+            f_ng_meta, text="Material Code: -",
+            font=("Segoe UI", 8), fg="#334155", bg="#f8fafc", anchor="w"
+        )
+        self.lbl_ng_mat.pack(fill=tk.X, pady=(1, 0))
 
         self.lbl_ng_image = tk.Label(
             self.card_last_ng, bg="#f1f5f9", relief="solid", bd=1,
@@ -1851,6 +1867,10 @@ class OmegaBatchApp:
                         self.lbl_ng_badge.config(text=f"{side.upper()} : {reason}", fg="#ffffff", bg="#dc2626")
                     if hasattr(self, 'lbl_ng_info'):
                         self.lbl_ng_info.config(text=f"Box #{box_no} | {box_sku} | {time_only}")
+                    if hasattr(self, 'lbl_ng_qr'):
+                        self.lbl_ng_qr.config(text=f"Coupon QR: {box_qr}")
+                    if hasattr(self, 'lbl_ng_mat'):
+                        self.lbl_ng_mat.config(text=f"Material Code: {box_mat}")
                 except Exception as ex:
                     print(f"Error updating NG UI: {ex}")
 
