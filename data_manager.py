@@ -420,6 +420,19 @@ class DataManager:
         except Exception as e:
             print(f"Error recording single coupon: {e}")
 
+    def remove_unprinted_coupons(self, coupon_list):
+        """Menghapus kupon yang belum selesai dicetak/inspeksi dari database index CSV (misal saat batch di-STOP)"""
+        if not coupon_list or not os.path.exists(self.coupon_index_file):
+            return
+        try:
+            coupons_to_remove = set(str(c).strip() for c in coupon_list if str(c).strip())
+            df = pd.read_csv(self.coupon_index_file, dtype=str, keep_default_na=False)
+            if not df.empty and 'Coupon' in df.columns:
+                df_filtered = df[~df['Coupon'].isin(coupons_to_remove)]
+                df_filtered.to_csv(self.coupon_index_file, index=False)
+        except Exception as e:
+            print(f"Error removing unprinted coupons: {e}")
+
     def record_printed_coupons(self, history_records, current_filename, report_relative_path):
         """Menambahkan kupon yang baru saja dicetak ke database index CSV (jika belum tercatat)"""
         if not history_records:

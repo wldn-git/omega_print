@@ -97,7 +97,7 @@ class LoginDialog:
             default_user = "operator"
 
         self.var_user = tk.StringVar(value=default_user)
-        self.cb_user = ttk.Combobox(container, textvariable=self.var_user, values=registered_users, font=("Segoe UI", 9), state="readonly")
+        self.cb_user = ttk.Combobox(container, textvariable=self.var_user, values=registered_users, font=("Segoe UI", 9), state="normal")
         self.cb_user.pack(fill=tk.X, pady=(0, 10), ipady=2)
         self.cb_user.bind("<<ComboboxSelected>>", lambda e: self.ent_password.focus_set())
 
@@ -149,6 +149,21 @@ class LoginDialog:
             font=("Segoe UI", 8), fg="#94a3b8", bg="#ffffff"
         )
         self.lbl_hint.pack(anchor=tk.CENTER)
+
+        # ADVANCE ACCOUNT SHORTCUT (Untuk Developer / Advance Engineering)
+        self.lbl_advance = tk.Label(
+            container, text="Akses Mode Advance",
+            font=("Segoe UI", 8, "underline"), fg="#64748b", bg="#ffffff", cursor="hand2"
+        )
+        self.lbl_advance.pack(anchor=tk.CENTER, pady=(6, 0))
+        self.lbl_advance.bind("<Button-1>", lambda e: self._activate_advance_mode())
+
+    def _activate_advance_mode(self):
+        """Memudahkan login akun developer tanpa harus memilih dari dropdown publik"""
+        self.var_user.set("developer")
+        self.var_pass.set("")
+        self.ent_password.focus_set()
+        self.lbl_error.config(text="")
 
     def _toggle_password_visibility(self):
         if self.var_show_pass.get():

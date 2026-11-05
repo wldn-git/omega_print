@@ -74,7 +74,11 @@ class UserManagementDialog(tk.Toplevel):
         role = self.var_role.get()
         if role == "admin":
             for v in self.page_vars.values(): v.set(True)
-            for v in self.feat_vars.values(): v.set(True)
+            for k, v in self.feat_vars.items():
+                if k != "simulation_mode":
+                    v.set(True)
+                else:
+                    v.set(False)
         else:
             self.page_vars["main"].set(True)
             self.page_vars["history"].set(True)
@@ -182,7 +186,6 @@ class UserManagementDialog(tk.Toplevel):
         feats_info = [
             ("export_csv", tr("um_feat_csv")),
             ("fetch_api", tr("um_feat_api")),
-            ("simulation_mode", tr("um_feat_sim")),
             ("manage_users", tr("um_feat_users"))
         ]
 

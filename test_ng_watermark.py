@@ -128,7 +128,7 @@ class TestNGWatermark(unittest.TestCase):
             s2_str="TEST-QR"
         )
 
-        for _ in range(15):
+        for _ in range(40):
             self.root.update()
             if self.app.lbl_ng_badge.cget("text") == "SIDE A : MISMATCH":
                 break

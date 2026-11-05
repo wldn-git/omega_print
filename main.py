@@ -139,8 +139,8 @@ class OmegaBatchApp:
         # --- Core Variables ---
         self.df = None
         self.preview_img = None
-        self.is_simulation = tk.BooleanVar(value=True) 
-        self.auto_judge_sim = tk.BooleanVar(value=True) 
+        self.is_simulation = tk.BooleanVar(value=False) 
+        self.auto_judge_sim = tk.BooleanVar(value=False) 
         self.history_filter = tk.StringVar(value="last_20") # Default Filter GUI
         self.retention_days_var = tk.StringVar(value=str(self.data_manager.get_history_retention_days()))
         self.current_filename = ""
@@ -1120,12 +1120,19 @@ class OmegaBatchApp:
 
         allowed_pages = perms.get("pages", ["main", "history", "logs"])
         allowed_feats = perms.get("features", ["export_csv"])
-        if role == "admin":
+        if role == "developer":
             allowed_pages = ["main", "history", "conn", "logs", "master"]
-            allowed_feats = ["export_csv", "fetch_api", "simulation_mode", "manage_users"]
+            allowed_feats = ["export_csv", "fetch_api", "simulation_mode", "manage_users", "developer_tools"]
+        elif role == "admin":
+            allowed_pages = ["main", "history", "conn", "logs", "master"]
+            allowed_feats = ["export_csv", "fetch_api", "manage_users"]
 
         # 1. Update Judul Jendela & Header Badge
-        if role == "admin":
+        if role == "developer":
+            badge_text = tr("badge_developer", name=name)
+            badge_bg = "#7c3aed" # Ungu Modern Industrial
+            self.root.title(tr("app_title_developer", name=name))
+        elif role == "admin":
             badge_text = tr("badge_admin", name=name)
             badge_bg = "#d97706"
             self.root.title(tr("app_title_admin", name=name))
@@ -1151,8 +1158,8 @@ class OmegaBatchApp:
         if getattr(self, 'active_nav', None) in hidden_navs:
             self.switch_nav("main")
 
-        # 3. Kontrol Mode Simulasi
-        can_sim = "simulation_mode" in allowed_feats or role == "admin"
+        # 3. Kontrol Mode Simulasi (Eksklusif Developer - Admin & Operator dilarang)
+        can_sim = (role == "developer")
         if hasattr(self, 'chk_simulation'):
             if not can_sim:
                 self.is_simulation.set(False)
@@ -1160,7 +1167,11 @@ class OmegaBatchApp:
             else:
                 self.chk_simulation.config(state="normal")
         if hasattr(self, 'chk_auto_judge'):
-            self.chk_auto_judge.config(state="normal" if can_sim else "disabled")
+            if not can_sim:
+                self.auto_judge_sim.set(False)
+                self.chk_auto_judge.config(state="disabled")
+            else:
+                self.chk_auto_judge.config(state="normal")
         if hasattr(self, 'card_sim'):
             if not can_sim:
                 self.card_sim.pack_forget()
@@ -1206,6 +1217,17 @@ class OmegaBatchApp:
         self.root.lift()
         self.root.focus_force()
         self.log_msg(f"[AUTH] Login berhasil sebagai '{user_info.get('username')}' ({user_info.get('role').upper()}).")
+
+        # Auto-connect perangkat keras (Printer & Scanner) secara non-blocking di awal running
+        self.root.after(350, self.auto_connect_hardware_on_startup)
+
+    def auto_connect_hardware_on_startup(self):
+        """Menghubungkan printer dan scanner secara otomatis dan senyap saat sistem pertama kali running"""
+        self.log_msg("[STARTUP] Memulai koneksi otomatis ke Printer Omega MX & Dual Scanner Keyence...")
+        # Non-blocking auto connect ke printer
+        self.test_tcp(silent=True)
+        # Non-blocking auto connect ke kedua scanner Keyence
+        self.connect_all_scanners(silent=True)
 
     def request_switch_user(self):
         """Meminta ganti akun / switch user saat aplikasi berjalan"""
@@ -1882,7 +1904,7 @@ class OmegaBatchApp:
                 except Exception:
                     pass
 
-        if threading.current_thread() is threading.main_thread() and self.check_is_simulation():
+        if threading.current_thread() is threading.main_thread() and (self.check_is_simulation() or not getattr(self, 'is_printing', False)):
             _worker()
         else:
             threading.Thread(target=_worker, daemon=True).start()
@@ -2809,14 +2831,15 @@ class OmegaBatchApp:
     # ==========================================
     # KONEKSI PRINTER OMEGA (Wrapper)
     # ==========================================
-    def test_tcp(self):
+    def test_tcp(self, silent=False):
         """Uji koneksi printer secara non-blocking di worker thread (S2)"""
         self._manual_disconnect_printer = False
 
-        if self.is_simulation.get():
+        if self.check_is_simulation():
             self.log_msg("Test Koneksi Omega MX (Mode Simulasi) - OK")
             threading.Thread(target=self.query_ink_levels, daemon=True).start()
-            messagebox.showinfo("OK", "Printer Online (Mode Simulasi)!", parent=self.root)
+            if not silent:
+                messagebox.showinfo("OK", "Printer Online (Mode Simulasi)!", parent=self.root)
         else:
             ip = self.ip_addr.get().strip()
             port = self.ip_port.get().strip()
@@ -2829,26 +2852,34 @@ class OmegaBatchApp:
                     if success:
                         self.log_msg("Test Koneksi Omega MX (Aktual) - Berhasil")
                         threading.Thread(target=self.query_ink_levels, daemon=True).start()
-                        messagebox.showinfo("OK", f"Printer Online!\n{msg}", parent=self.root)
+                        if not silent:
+                            messagebox.showinfo("OK", f"Printer Online!\n{msg}", parent=self.root)
                     else:
                         self.log_msg(f"Test Koneksi Omega MX Gagal: {msg}")
-                        messagebox.showerror("Gagal", f"Printer Offline:\n{msg}", parent=self.root)
+                        if not silent:
+                            messagebox.showerror("Gagal", f"Printer Offline:\n{msg}", parent=self.root)
                 try:
                     self.root.after(0, _on_done)
                 except Exception:
                     pass
             threading.Thread(target=_worker_test, daemon=True).start()
-       
+        
     def check_is_simulation(self):
-        """Pemeriksaan status mode simulasi secara thread-safe"""
+        """Pemeriksaan status mode simulasi secara thread-safe (Hanya aktif jika role adalah developer)"""
         try:
+            if self.current_user is not None:
+                user_role = self.current_user.get("role", "")
+                if user_role != "developer":
+                    return False
             return bool(self.is_simulation.get())
         except Exception:
-            return True
+            return False
 
     def check_is_auto_judge_sim(self):
         """Pemeriksaan status auto-scan mode simulasi secara thread-safe"""
         try:
+            if not self.check_is_simulation():
+                return False
             return bool(getattr(self, 'auto_judge_sim', None) and self.auto_judge_sim.get())
         except Exception:
             return False
@@ -2889,9 +2920,9 @@ class OmegaBatchApp:
     def get_current_print_count(self):
         """Meneruskan permintaan hitungan ke modul printer_omega.py"""
         try:
-            is_sim = bool(self.is_simulation.get())
+            is_sim = self.check_is_simulation()
         except Exception:
-            is_sim = True
+            is_sim = False
 
         if is_sim:
             return getattr(self, 'current_judgments', 0)
@@ -2964,15 +2995,17 @@ class OmegaBatchApp:
         
         if not self.resumed_checkpoint:
             self.ng_list.clear()
-            self.history_records.clear() 
-            self.print_cycle = 1         
             # Hitung data yang sebelumnya sudah di-judge agar counter progres akurat dan tidak desync
             already_ok_items = [it for it in all_items if 'ok' in self.tree.item(it, 'tags')]
             already_ng_items = [it for it in all_items if 'ng' in self.tree.item(it, 'tags')]
+            # Hanya bersihkan history_records jika memulai batch benar-benar dari awal (belum ada yang OK/NG)
+            if not already_ok_items and not already_ng_items:
+                self.history_records.clear()
+                self.batch_start_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.print_cycle = 1         
             self.count_ok = len(already_ok_items)
             self.count_ng = len(already_ng_items)
             self.current_judgments = len(already_ok_items) + len(already_ng_items)
-            self.batch_start_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             for item in items_to_print:
                 self.tree.item(item, tags=())
         else:
@@ -3045,7 +3078,7 @@ class OmegaBatchApp:
                 pass
 
     def stop_batch_print(self):
-        """Meminta penghentian proses cetak batch oleh operator dan sinkronisasi antrean (v3.0)"""
+        """Meminta penghentian proses cetak batch oleh operator dan sinkronisasi antrean (v4.0)"""
         if getattr(self, 'is_printing', False):
             if messagebox.askyesno("Konfirmasi Stop", "Hentikan pengiriman antrean cetak batch ke printer?"):
                 self.stop_requested = True
@@ -3058,27 +3091,51 @@ class OmegaBatchApp:
                 self.set_system_status("STOPPED")
                 self._sync_pause_button_ui()
 
-                # 1. Reset antrean GUI secara instan di main thread
-                for it in list(getattr(self, 'waiting_queue', [])):
-                    try:
-                        if 'ok' not in self.tree.item(it, 'tags') and 'ng' not in self.tree.item(it, 'tags'):
+                # 1. Reset antrean GUI secara instan di main thread: kembalikan semua item belum ter-judge ke Siap Cetak
+                unprinted_coupons = []
+                for it in self.tree.get_children():
+                    tags = self.tree.item(it, 'tags')
+                    if 'ok' not in tags and 'ng' not in tags and 'duplicate' not in tags:
+                        try:
                             self.tree.item(it, tags=())
-                            self.tree.set(it, "status", tr("st_ready_print"))
-                    except Exception:
-                        pass
+                            st_txt = tr("st_ready_print")
+                            self.tree.set(it, "status", st_txt)
+                            if it in self.table_items_data:
+                                self.table_items_data[it]['status'] = st_txt
+                                self.table_items_data[it]['status_key'] = "st_ready_print"
+                                self.table_items_data[it]['status_args'] = {}
+                                qr_val = self.table_items_data[it].get('qr', '')
+                                if qr_val:
+                                    unprinted_coupons.append(qr_val)
+                        except Exception:
+                            pass
                 self.waiting_queue.clear()
+                self.update_queue_ui()
                 self.log_msg("-> Antrean hardware printer dibersihkan dan data belum ter-scan dikembalikan ke Siap Cetak.")
 
-                # 2. Kirim sinyal STOP, CLR, RESET|2 ke printer di background thread
+                # Hapus kupon yang belum tercetak/terinspeksi dari database duplikat
+                if unprinted_coupons:
+                    try:
+                        self.data_manager.remove_unprinted_coupons(unprinted_coupons)
+                    except Exception as e:
+                        print(f"Error removing unprinted coupons on STOP: {e}")
+
+                # 2. Kirim sinyal STOP, CLR, RESET|2 dan STANDBY ke printer di background thread
                 def _do_stop_and_purge():
                     try:
-                        self.send_and_read("STOP")
+                        self.send_and_read("STOP\r\n")
                         time.sleep(0.3)
-                        self.send_and_read("CLR")
+                        self.send_and_read("CLR\r\n")
                         time.sleep(0.3)
-                        self.send_and_read("RESET|2")
-                    except Exception:
-                        pass
+                        self.send_and_read("RESET|2\r\n")
+                        time.sleep(0.3)
+                        standby_payload = "MFD|SKU01:STANDBY|QRC02:QR Selesai|MAT03:xxxxxxxxx\r\n"
+                        self.send_and_read(standby_payload)
+                        time.sleep(0.3)
+                        self.send_and_read("STOP\r\n")
+                        self.log_msg("-> [PRINTER] Memory printer dibersihkan (CLR + RESET|2) dan tampilan disetel ke STANDBY.")
+                    except Exception as e:
+                        self.log_msg(f"-> [PRINTER WARNING] Gagal purge buffer printer: {e}")
                 threading.Thread(target=_do_stop_and_purge, daemon=True).start()
 
     def _restore_print_buttons(self):
@@ -3431,25 +3488,34 @@ class OmegaBatchApp:
         self.update_scanner_ui_status(scanner_id)
         self.log_msg(f"Scanner {scanner_id} ({side_name}) diputuskan.")
 
-    def connect_all_scanners(self, on_finished=None):
+    def connect_all_scanners(self, on_finished=None, silent=False):
         """Menghubungkan kedua scanner Keyence (Scanner 1 & Scanner 2) di worker thread (S2).
-        on_finished(ok: bool) dipanggil di main thread setelah dialog hasil ditutup."""
+        on_finished(ok: bool) dipanggil di main thread setelah koneksi selesai."""
         self.log_msg("Menghubungkan kedua scanner Keyence...")
         def _worker_connect():
             s1_ok = self.connect_scanner(1, silent=True)
             s2_ok = self.connect_scanner(2, silent=True)
             def _on_done():
-                if s1_ok and s2_ok:
-                    messagebox.showinfo("Dual Scanner OK", "Kedua Scanner Keyence (Sisi A & Sisi B) Berhasil Terhubung!", parent=self.root)
-                elif s1_ok and not s2_ok:
-                    messagebox.showwarning("Sebagian Terhubung", "Scanner 1 (Sisi A) Terhubung, tetapi Scanner 2 (Sisi B) Gagal!", parent=self.root)
-                elif not s1_ok and s2_ok:
-                    messagebox.showwarning("Sebagian Terhubung", "Scanner 2 (Sisi B) Terhubung, tetapi Scanner 1 (Sisi A) Gagal!", parent=self.root)
+                if not silent:
+                    if s1_ok and s2_ok:
+                        messagebox.showinfo("Dual Scanner OK", "Kedua Scanner Keyence (Sisi A & Sisi B) Berhasil Terhubung!", parent=self.root)
+                    elif s1_ok and not s2_ok:
+                        messagebox.showwarning("Sebagian Terhubung", "Scanner 1 (Sisi A) Terhubung, tetapi Scanner 2 (Sisi B) Gagal!", parent=self.root)
+                    elif not s1_ok and s2_ok:
+                        messagebox.showwarning("Sebagian Terhubung", "Scanner 2 (Sisi B) Terhubung, tetapi Scanner 1 (Sisi A) Gagal!", parent=self.root)
+                    else:
+                        messagebox.showerror("Gagal", "Kedua Scanner Gagal Terhubung! Periksa kabel LAN, IP & Port masing-masing scanner.", parent=self.root)
                 else:
-                    messagebox.showerror("Gagal", "Kedua Scanner Gagal Terhubung! Periksa kabel LAN, IP & Port masing-masing scanner.", parent=self.root)
+                    if s1_ok and s2_ok:
+                        self.log_msg("[STARTUP] Kedua Scanner Keyence Berhasil Terhubung Otomatis.")
+                    else:
+                        self.log_msg(f"[STARTUP WARNING] Scanner auto-connect: S1={'OK' if s1_ok else 'FAIL'}, S2={'OK' if s2_ok else 'FAIL'}")
                 if on_finished:
                     on_finished(bool(s1_ok and s2_ok))
-            self.root.after(0, _on_done)
+            try:
+                self.root.after(0, _on_done)
+            except Exception:
+                pass
         threading.Thread(target=_worker_connect, daemon=True).start()
 
     def disconnect_all_scanners(self):

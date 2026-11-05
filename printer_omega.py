@@ -114,6 +114,15 @@ class OmegaPrinter:
 
     def send_and_read(self, ip, port, message):
         """Kirim perintah ke Omega menggunakan persistent socket dengan auto-recovery/reconnect"""
+        # Standardisasi terminasi perintah protokol ASCII Omega MX (wajib CRLF \r\n)
+        if not message.endswith("\r\n"):
+            if message.endswith("\n"):
+                message = message[:-1] + "\r\n"
+            elif message.endswith("\r"):
+                message = message + "\n"
+            else:
+                message = message + "\r\n"
+
         with self._lock:
             # Upaya pertama menggunakan socket yang sudah ada
             try:
