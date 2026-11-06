@@ -133,16 +133,26 @@ class ModbusController:
                 self.close_all()
                 return False, f"RTU Error: {str(e)}"
 
-    def read_io_tcp(self, ip, port, slave_id=1):
-        """Membaca 4 bit DI & 4 bit DO via TCP menggunakan persistent connection"""
+    def read_io_tcp(self, ip, port, slave_id=1, di_count=5, do_count=6):
+        """Membaca bit DI & DO via TCP menggunakan persistent connection (auto-fallback jika slave 4-channel)"""
         with self._lock:
             try:
                 client = self._get_tcp_client(ip, port)
                 if client.connected:
-                    di_res = client.read_discrete_inputs(address=0, count=4, device_id=int(slave_id))
-                    do_res = client.read_coils(address=0, count=4, device_id=int(slave_id))
+                    di_res = client.read_discrete_inputs(address=0, count=di_count, device_id=int(slave_id))
+                    if di_res.isError() and di_count > 4:
+                        di_res = client.read_discrete_inputs(address=0, count=4, device_id=int(slave_id))
+
+                    do_res = client.read_coils(address=0, count=do_count, device_id=int(slave_id))
+                    if do_res.isError() and do_count > 4:
+                        do_res = client.read_coils(address=0, count=4, device_id=int(slave_id))
+
                     if not di_res.isError() and not do_res.isError():
-                        return True, di_res.bits[:4], do_res.bits[:4], ""
+                        di_bits = list(di_res.bits)
+                        do_bits = list(do_res.bits)
+                        while len(di_bits) < di_count: di_bits.append(False)
+                        while len(do_bits) < do_count: do_bits.append(False)
+                        return True, di_bits[:di_count], do_bits[:do_count], ""
                     else:
                         # Auto-recovery: Reconnect jika respon error
                         self._tcp_client = None
@@ -152,16 +162,26 @@ class ModbusController:
                 self._tcp_client = None
                 return False, [], [], str(e)
 
-    def read_io_rtu(self, com, baud, parity, stopbits, databits, slave_id=1):
-        """Membaca 4 bit DI & 4 bit DO via RTU/Serial menggunakan persistent connection"""
+    def read_io_rtu(self, com, baud, parity, stopbits, databits, slave_id=1, di_count=5, do_count=6):
+        """Membaca bit DI & DO via RTU/Serial menggunakan persistent connection (auto-fallback jika slave 4-channel)"""
         with self._lock:
             try:
                 client = self._get_rtu_client(com, baud, parity, stopbits, databits)
                 if client.connected:
-                    di_res = client.read_discrete_inputs(address=0, count=4, device_id=int(slave_id))
-                    do_res = client.read_coils(address=0, count=4, device_id=int(slave_id))
+                    di_res = client.read_discrete_inputs(address=0, count=di_count, device_id=int(slave_id))
+                    if di_res.isError() and di_count > 4:
+                        di_res = client.read_discrete_inputs(address=0, count=4, device_id=int(slave_id))
+
+                    do_res = client.read_coils(address=0, count=do_count, device_id=int(slave_id))
+                    if do_res.isError() and do_count > 4:
+                        do_res = client.read_coils(address=0, count=4, device_id=int(slave_id))
+
                     if not di_res.isError() and not do_res.isError():
-                        return True, di_res.bits[:4], do_res.bits[:4], ""
+                        di_bits = list(di_res.bits)
+                        do_bits = list(do_res.bits)
+                        while len(di_bits) < di_count: di_bits.append(False)
+                        while len(do_bits) < do_count: do_bits.append(False)
+                        return True, di_bits[:di_count], do_bits[:do_count], ""
                     else:
                         self._rtu_client = None
                         return False, [], [], "Gagal baca data bit I/O RTU."

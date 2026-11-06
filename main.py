@@ -223,6 +223,11 @@ class OmegaBatchApp:
         self.table_items_data = {}
         self.modbus_fail_count = 0
         self.modbus_alarm_active = False
+        self._last_heartbeat_time = 0
+        self._heartbeat_state = False
+        self._last_conveyor_permissive = None
+        self._conveyor_permissive_start_time = 0
+        self._conveyor_feedback_alarm_active = False
         
         # Kompatibilitas Legacy
         self.scanner_ip = self.scanner1_ip 
@@ -921,6 +926,13 @@ class OmegaBatchApp:
         except Exception:
             pass
 
+        # Fail-Safe Interlock: Jika hardware putus saat sedang cetak batch, jeda produksi dan matikan izin konveyor
+        if getattr(self, 'is_printing', False) and not getattr(self, 'pause_requested', False):
+            self.pause_requested = True
+            self.log_msg(f"[FAIL-SAFE HARDWARE] Perangkat {device_type} terputus saat cetak! Batch di-PAUSE otomatis & konveyor STOP.")
+            self._sync_pause_button_ui()
+            self._sync_conveyor_permissive()
+
         # Identifikasi perangkat
         if device_type == "printer":
             ip = self.ip_addr.get().strip() or "192.168.100.10"
@@ -1095,6 +1107,7 @@ class OmegaBatchApp:
                         win.destroy()
                     except Exception:
                         pass
+                self._sync_conveyor_permissive()
         if threading.current_thread() is threading.main_thread():
             _do_dismiss()
         else:
@@ -1222,12 +1235,15 @@ class OmegaBatchApp:
         self.root.after(350, self.auto_connect_hardware_on_startup)
 
     def auto_connect_hardware_on_startup(self):
-        """Menghubungkan printer dan scanner secara otomatis dan senyap saat sistem pertama kali running"""
-        self.log_msg("[STARTUP] Memulai koneksi otomatis ke Printer Omega MX & Dual Scanner Keyence...")
+        """Menghubungkan printer, scanner, dan Modbus I/O secara otomatis dan senyap saat sistem pertama kali running"""
+        self.log_msg("[STARTUP] Memulai koneksi otomatis ke Printer Omega MX, Dual Scanner Keyence & Modbus I/O...")
         # Non-blocking auto connect ke printer
         self.test_tcp(silent=True)
         # Non-blocking auto connect ke kedua scanner Keyence
         self.connect_all_scanners(silent=True)
+        # Non-blocking auto connect ke Modbus I/O monitoring
+        if not getattr(self, 'is_io_running', False):
+            self.toggle_io_monitoring()
 
     def request_switch_user(self):
         """Meminta ganti akun / switch user saat aplikasi berjalan"""
@@ -2318,14 +2334,17 @@ class OmegaBatchApp:
             ("I0", "10001", "di0_title", "di0_desc"),
             ("I1", "10002", "di1_title", "di1_desc"),
             ("I2", "10003", "di2_title", "di2_desc"),
-            ("I3", "10004", "di3_title", "di3_desc")
+            ("I3", "10004", "di3_title", "di3_desc"),
+            ("I4", "10005", "di4_title", "di4_desc")
         ]
 
         do_data = [
             ("O0", "00001", "do0_title", "do0_desc"),
             ("O1", "00002", "do1_title", "do1_desc"),
             ("O2", "00003", "do2_title", "do2_desc"),
-            ("O3", "00004", "do3_title", "do3_desc")
+            ("O3", "00004", "do3_title", "do3_desc"),
+            ("O4", "00005", "do4_title", "do4_desc"),
+            ("O5", "00006", "do5_title", "do5_desc")
         ]
 
         for code, addr, t_key, d_key in di_data:
@@ -3030,6 +3049,7 @@ class OmegaBatchApp:
         if hasattr(self, 'btn_stop_print'): self.btn_stop_print.config(state="normal")
         if hasattr(self, 'btn_pause_print'): self.btn_pause_print.config(text=tr("btn_pause"), state="normal")
         self.set_system_status("RUNNING")
+        self._sync_conveyor_permissive()
 
         if self.resumed_checkpoint:
             self.log_msg(f"=== MELANJUTKAN BATCH PRINTING ({len(items_to_print)} DATA TERSISA DARI TOTAL {self.expected_total_judgments}) ===")
@@ -3058,6 +3078,7 @@ class OmegaBatchApp:
                 self.send_and_read("START")
 
         self._sync_pause_button_ui()
+        self._sync_conveyor_permissive()
 
     def _sync_pause_button_ui(self):
         """Sinkronisasi teks tombol PAUSE/RESUME di GUI secara thread-safe"""
@@ -3090,6 +3111,7 @@ class OmegaBatchApp:
                 self.save_current_checkpoint()
                 self.set_system_status("STOPPED")
                 self._sync_pause_button_ui()
+                self._sync_conveyor_permissive()
 
                 # 1. Reset antrean GUI secara instan di main thread: kembalikan semua item belum ter-judge ke Siap Cetak
                 unprinted_coupons = []
@@ -3234,6 +3256,7 @@ class OmegaBatchApp:
                     self.log_msg(f"[ALARM PRINTER] Komunikasi ke printer terputus pada data No.{item_no}! Batch otomatis di-PAUSE.")
                     self.pause_requested = True
                     self._sync_pause_button_ui()
+                    self._sync_conveyor_permissive()
 
                     def _ask_reconnect(no=item_no, sku=txt_sku):
                         ans = messagebox.askretrycancel(
@@ -3250,6 +3273,7 @@ class OmegaBatchApp:
                             self.stop_requested = True
                             self.pause_requested = False
                         self._sync_pause_button_ui()
+                        self._sync_conveyor_permissive()
 
                     try:
                         self.root.after(100, _ask_reconnect)
@@ -4386,7 +4410,73 @@ class OmegaBatchApp:
             self.root.after(0, _on_done)
         threading.Thread(target=_worker_rtu, daemon=True).start()
                
-#------------------- modbus DI DO
+#------------------- modbus DI DO & INTERLOCK
+    def evaluate_conveyor_permissive(self):
+        """
+        Menentukan apakah konveyor diizinkan berjalan (Permissive Run DO 4).
+        Kondisi Aman:
+        1. Batch sedang aktif (is_printing == True)
+        2. Tidak dalam status PAUSE atau STOP
+        3. Tidak ada alarm interlock fisik (DI 3 aman / True)
+        4. Tidak ada alarm kritis Modbus I/O
+        5. Tidak ada alarm cascade NG
+        6. Tidak ada popup disconnect hardware yang aktif
+        7. Printer & Scanner online (jika bukan mode simulasi)
+        """
+        if not getattr(self, 'is_printing', False):
+            return False
+        if getattr(self, 'pause_requested', False) or getattr(self, 'stop_requested', False):
+            return False
+        if getattr(self, 'interlock_alarm_active', False):
+            return False
+        if getattr(self, 'modbus_alarm_active', False):
+            return False
+        if getattr(self, 'cascade_warning_active', False):
+            return False
+        if hasattr(self, '_active_alarm_dialogs') and self._active_alarm_dialogs:
+            return False
+        if not self.is_simulation.get():
+            if not getattr(self, 'printer_connected', False):
+                return False
+            if not (getattr(self, 'is_listening1', False) or getattr(self, 'is_listening2', False)):
+                return False
+        return True
+
+    def _sync_conveyor_permissive(self):
+        """Menulis status sinyal izin jalan konveyor (DO 4) ke Modbus Slave secara asynchronous"""
+        desired = self.evaluate_conveyor_permissive()
+        if desired != getattr(self, '_last_conveyor_permissive', None):
+            self._last_conveyor_permissive = desired
+            if desired:
+                self._conveyor_permissive_start_time = time.time()
+            else:
+                self._conveyor_permissive_start_time = 0
+
+            mode = self.modbus_mode.get() if hasattr(self, 'modbus_mode') else "TCP"
+            slave = self.slave_id.get() if hasattr(self, 'slave_id') else 1
+
+            def _do_write():
+                try:
+                    if mode == "TCP":
+                        ip = self.modbus_ip.get().strip()
+                        port = self.modbus_port.get().strip()
+                        self.modbus.write_coil_tcp(ip, port, address=4, value=desired, slave_id=slave)
+                    else:
+                        com = self.modbus_com.get().strip()
+                        baud = self.modbus_baud.get().strip()
+                        parity = self.modbus_parity.get().strip()
+                        stopbits = self.modbus_stopbits.get().strip()
+                        databits = self.modbus_databits.get().strip()
+                        self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=4, value=desired, slave_id=slave)
+                    try:
+                        self.log_msg(f"-> [INTERLOCK MODBUS] Sinyal Izin Konveyor (DO 4) diset ke: {'RUN (1)' if desired else 'STOP (0)'}")
+                    except Exception:
+                        pass
+                except Exception as e:
+                    pass
+
+            threading.Thread(target=_do_write, daemon=True).start()
+
     def toggle_io_monitoring(self):
         """Aktifkan/Matikan pemantauan I/O"""
         if not hasattr(self, 'is_io_running'): self.is_io_running = False
@@ -4398,8 +4488,21 @@ class OmegaBatchApp:
         else:
             self.is_io_running = False
             self.btn_io_connect.config(text=tr("btn_start_io"))
+            # Matikan izin jalan konveyor saat I/O dimatikan
+            self._last_conveyor_permissive = False
+            mode = self.modbus_mode.get() if hasattr(self, 'modbus_mode') else "TCP"
+            slave = self.slave_id.get() if hasattr(self, 'slave_id') else 1
+            try:
+                if mode == "TCP":
+                    self.modbus.write_coil_tcp(self.modbus_ip.get().strip(), self.modbus_port.get().strip(), address=4, value=False, slave_id=slave)
+                else:
+                    self.modbus.write_coil_rtu(self.modbus_com.get().strip(), self.modbus_baud.get().strip(), self.modbus_parity.get().strip(), self.modbus_stopbits.get().strip(), self.modbus_databits.get().strip(), address=4, value=False, slave_id=slave)
+            except Exception:
+                pass
             # Tutup koneksi persistent Modbus agar port dilepas
             self.modbus.close_all()
+            self.modbus_connected = False
+            self.update_hardware_indicators()
 
     def io_monitor_loop(self):
         """Looping I/O yang meminta data bersih dari modbus_io.py (Thread-safe snapshot - S1)"""
@@ -4417,54 +4520,111 @@ class OmegaBatchApp:
         while self.is_io_running:
             if mode == "TCP":
                 success, di_bits, do_bits, err = self.modbus.read_io_tcp(
-                    ip, port, slave
+                    ip, port, slave, di_count=5, do_count=6
                 )
             else:
                 success, di_bits, do_bits, err = self.modbus.read_io_rtu(
-                    com, baud, parity, stopbits, databits, slave
+                    com, baud, parity, stopbits, databits, slave, di_count=5, do_count=6
                 )
                 
             if success:
+                self.modbus_connected = True
                 self.modbus_fail_count = 0
                 if getattr(self, 'modbus_alarm_active', False):
                     self.modbus_alarm_active = False
                     self.log_msg("[MODBUS] Komunikasi I/O Modbus pulih kembali normal.")
+                self.update_hardware_indicators()
+
                 # Update LED di GUI (Harus via main thread / root.after)
                 try:
                     self.root.after(0, lambda d=di_bits, o=do_bits: self.update_led_ui(d, o))
                 except Exception:
                     pass
-                # Analisis Trailing Edge Sensor Scanner & Interlock Safety
+
+                # 1. Heartbeat Watchdog (DO 5 - Life-Bit berkedip tiap 500ms)
+                now = time.time()
+                if now - getattr(self, '_last_heartbeat_time', 0) >= 0.5:
+                    self._last_heartbeat_time = now
+                    self._heartbeat_state = not getattr(self, '_heartbeat_state', False)
+                    try:
+                        if mode == "TCP":
+                            self.modbus.write_coil_tcp(ip, port, address=5, value=self._heartbeat_state, slave_id=slave)
+                        else:
+                            self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=5, value=self._heartbeat_state, slave_id=slave)
+                    except Exception:
+                        pass
+
+                # 2. Sinkronisasi sinyal Conveyor Permissive Run (DO 4)
+                desired_perm = self.evaluate_conveyor_permissive()
+                if desired_perm != getattr(self, '_last_conveyor_permissive', None):
+                    self._last_conveyor_permissive = desired_perm
+                    if desired_perm:
+                        self._conveyor_permissive_start_time = time.time()
+                    else:
+                        self._conveyor_permissive_start_time = 0
+                    try:
+                        if mode == "TCP":
+                            self.modbus.write_coil_tcp(ip, port, address=4, value=desired_perm, slave_id=slave)
+                        else:
+                            self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=4, value=desired_perm, slave_id=slave)
+                        self.log_msg(f"-> [INTERLOCK MODBUS] Sinyal Izin Konveyor (DO 4) diset ke: {'RUN (1)' if desired_perm else 'STOP (0)'}")
+                    except Exception:
+                        pass
+
+                # 3. Analisis Trailing Edge Sensor Scanner & Interlock Safety
                 self._process_di_signals(di_bits)
             else:
                 self.modbus_fail_count += 1
                 if self.modbus_fail_count >= 3:
+                    self.modbus_connected = False
+                    self.update_hardware_indicators()
                     # Fail-Safe: Jika I/O terputus saat cetak, interlock safety & rejector tidak bisa dijamin!
                     if getattr(self, 'is_printing', False) and not self.is_simulation.get():
                         if not getattr(self, 'modbus_alarm_active', False):
                             self.modbus_alarm_active = True
                             self.interlock_alarm_active = True
                             self.pause_requested = True
-                            self.log_msg(f"[ALARM KRITIS MODBUS] Komunikasi I/O terputus {self.modbus_fail_count}x berturut-turut ({err})! Batch otomatis di-PAUSE (Fail-Safe).")
+                            self.log_msg(f"[ALARM KRITIS MODBUS] Komunikasi I/O terputus {self.modbus_fail_count}x berturut-turut ({err})! Batch otomatis di-PAUSE & Konveyor STOP (Fail-Safe).")
                             self._sync_pause_button_ui()
+                            self._sync_conveyor_permissive()
                 print(f"[MODBUS] {err}")
                 
             time.sleep(0.08) # Polling presisi tinggi untuk deteksi transisi sensor
 
     def _process_di_signals(self, di_bits):
-        """Memproses sinyal digital input (Sensor Scanner, Safety Interlock, Debounce)"""
+        """Memproses sinyal digital input (Sensor Scanner, Safety Interlock, Conveyor Feedback, Debounce)"""
         # 1. Pengecekan Interlock Safety / Tekanan Angin Drop (DI 3)
         is_safety_ok = di_bits[3]
         if not is_safety_ok and getattr(self, 'is_printing', False) and not self.is_simulation.get():
             if not getattr(self, 'interlock_alarm_active', False):
                 self.interlock_alarm_active = True
-                self.log_msg("[ALARM INTERLOCK] Tekanan Angin Drop / E-Stop Aktif (DI 3 OFF)! Batch di-PAUSE otomatis.")
+                self.log_msg("[ALARM INTERLOCK] Tekanan Angin Drop / E-Stop Aktif (DI 3 OFF)! Batch di-PAUSE otomatis & Konveyor STOP.")
                 self.pause_requested = True
                 self._sync_pause_button_ui()
-        elif is_safety_ok:
+                self._sync_conveyor_permissive()
+        elif is_safety_ok and getattr(self, 'interlock_alarm_active', False):
             self.interlock_alarm_active = False
+            self.log_msg("[INTERLOCK PULIH] Tekanan Angin / E-Stop kembali normal (DI 3 ON).")
+            self._sync_conveyor_permissive()
 
-        # 2. Deteksi Trailing Edge Sensor Scanner (DI 1: True -> False / "Sudah tidak terdeteksi")
+        # 2. Pengecekan Feedback Fisik Motor Konveyor (DI 4)
+        if len(di_bits) > 4:
+            is_conveyor_moving = di_bits[4]
+            if (getattr(self, '_last_conveyor_permissive', False) and 
+                getattr(self, 'is_printing', False) and 
+                not self.is_simulation.get()):
+                perm_time = getattr(self, '_conveyor_permissive_start_time', 0)
+                if perm_time > 0 and (time.time() - perm_time) > 2.5 and not is_conveyor_moving:
+                    if not getattr(self, '_conveyor_feedback_alarm_active', False):
+                        self._conveyor_feedback_alarm_active = True
+                        self.log_msg("[ALARM KONVEYOR] Motor konveyor fisik terhenti/trip (DI 4 OFF)! Batch di-PAUSE otomatis.")
+                        self.pause_requested = True
+                        self._sync_pause_button_ui()
+                        self._sync_conveyor_permissive()
+            elif is_conveyor_moving:
+                self._conveyor_feedback_alarm_active = False
+
+        # 3. Deteksi Trailing Edge Sensor Scanner (DI 1: True -> False / "Sudah tidak terdeteksi")
         # Menandakan ekor kardus 60 cm baru saja lepas dari area scanner
         curr_scanner_sensor = di_bits[1]
         prev_scanner_sensor = getattr(self, 'last_scanner_sensor_state', False)
@@ -4506,14 +4666,12 @@ class OmegaBatchApp:
     def update_led_ui(self, di_bits, do_bits):
         """Mengubah warna kotak LED di GUI berdasarkan status bit"""
         # DI LED (Discrete Inputs)
-        for i in range(4):
-            # Jika bit bernilai True/1, warna Hijau, jika False/0, warna Abu-abu
+        for i in range(min(len(self.di_leds), len(di_bits))):
             color = "#00ff00" if di_bits[i] else "grey" 
             self.di_leds[i].config(bg=color)
 
         # DO LED (Coils)
-        for i in range(4):
-            # Jika bit bernilai True/1, warna Oranye/Kuning, jika False/0, warna Abu-abu
+        for i in range(min(len(self.do_leds), len(do_bits))):
             color = "#ffcc00" if do_bits[i] else "grey"
             self.do_leds[i].config(bg=color)
     
