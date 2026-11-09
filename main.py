@@ -228,6 +228,7 @@ class OmegaBatchApp:
         self._last_conveyor_permissive = None
         self._conveyor_permissive_start_time = 0
         self._conveyor_feedback_alarm_active = False
+        self.panel_bypass_mode = False
         
         # Kompatibilitas Legacy
         self.scanner_ip = self.scanner1_ip 
@@ -2939,11 +2940,14 @@ class OmegaBatchApp:
         
         if reply.startswith("ERROR_CONN:"):
             self.log_msg(f"ERROR KONEKSI PRINTER: {reply}")
-            prev_status = getattr(self, 'printer_connected', False)
-            self.printer_connected = False
-            self.update_hardware_indicators()
-            if prev_status and not getattr(self, '_manual_disconnect_printer', False):
-                self.root.after(0, lambda: self.show_hardware_alarm_popup("printer"))
+            # Verifikasi keterjangkauan fisik TCP seperti Scanner sebelum memicu alarm terputus
+            is_physically_alive, _ = self.printer.test_connection(ip, port)
+            if not is_physically_alive:
+                prev_status = getattr(self, 'printer_connected', False)
+                self.printer_connected = False
+                self.update_hardware_indicators()
+                if prev_status and not getattr(self, '_manual_disconnect_printer', False):
+                    self.root.after(0, lambda: self.show_hardware_alarm_popup("printer"))
             return None
         return reply
 

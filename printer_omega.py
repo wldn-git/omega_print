@@ -65,14 +65,37 @@ class OmegaPrinter:
             self.current_port = port
 
     def test_connection(self, ip, port):
-        """Test koneksi aktual ke printer dan validasi respon STATUS"""
+        """
+        Uji koneksi ke printer dengan pendekatan socket TCP murni (persis seperti Scanner Keyence).
+        Jika socket sudah terhubung, verifikasi status socket yang ada.
+        Jika belum, buat koneksi socket baru ke IP dan Port printer.
+        """
         try:
-            reply = self.send_and_read(ip, port, "STATUS|0,0")
-            if reply and not reply.startswith("ERROR_CONN:") and "EER" not in reply.upper():
-                return True, f"Printer Online! (Respon: {reply})"
-            return False, f"Printer tidak merespon perintah STATUS ({reply})"
+            port = int(port)
+            with self._lock:
+                if self.sock is not None:
+                    try:
+                        err = self.sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+                        if err == 0:
+                            return True, f"Printer Terhubung ke {ip}:{port}"
+                    except Exception:
+                        pass
+                    try:
+                        self.sock.close()
+                    except Exception:
+                        pass
+                    self.sock = None
+
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                s.settimeout(2.5)
+                s.connect((ip, port))
+                self.sock = s
+                self.current_ip = ip
+                self.current_port = port
+                return True, f"Printer Terhubung ke {ip}:{port}"
         except Exception as e:
-            return False, str(e)
+            return False, f"Gagal terhubung ke {ip}:{port}: {e}"
 
     def check_status(self, ip, port):
         """
@@ -128,18 +151,12 @@ class OmegaPrinter:
             else:
                 message = message + "\r\n"
 
-        # Perintah kontrol searah (one-way commands): printer memproses aksi internal tanpa mengirim teks balasan.
-        # Tidak perlu menunggu recv() agar tidak terjadi timeout palsu yang memicu popup disconnect.
-        is_oneway = clean_cmd.upper() in ("START", "STOP", "CLR", "CLEAR")
-
         with self._lock:
             # Upaya pertama menggunakan socket yang sudah ada
             try:
                 self._ensure_connected(ip, port)
                 self._flush_input()
                 self.sock.sendall(message.encode('utf-8'))
-                if is_oneway:
-                    return "OK"
                 reply = self.sock.recv(1024).decode('utf-8', errors='ignore').strip()
                 if reply and "SERVER CONNECTED" in reply.upper():
                     try:
@@ -160,8 +177,6 @@ class OmegaPrinter:
                     self._ensure_connected(ip, port)
                     self._flush_input()
                     self.sock.sendall(message.encode('utf-8'))
-                    if is_oneway:
-                        return "OK"
                     reply = self.sock.recv(1024).decode('utf-8', errors='ignore').strip()
                     if reply and "SERVER CONNECTED" in reply.upper():
                         try:
