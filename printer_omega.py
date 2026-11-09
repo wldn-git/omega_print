@@ -52,8 +52,8 @@ class OmegaPrinter:
             s.settimeout(2.5)
             s.connect((ip, port))
 
-            # Bersihkan greeting awal dengan timeout singkat (0.3s) agar tidak blocking lama
-            s.settimeout(0.3)
+            # Bersihkan greeting awal dengan timeout singkat (0.6s) agar buffer bersih
+            s.settimeout(0.6)
             try:
                 s.recv(1024)
             except Exception:
@@ -67,7 +67,7 @@ class OmegaPrinter:
     def test_connection(self, ip, port):
         """Test koneksi aktual ke printer dan validasi respon STATUS"""
         try:
-            reply = self.send_and_read(ip, port, "STATUS")
+            reply = self.send_and_read(ip, port, "STATUS|0,0")
             if reply and not reply.startswith("ERROR_CONN:") and "EER" not in reply.upper():
                 return True, f"Printer Online! (Respon: {reply})"
             return False, f"Printer tidak merespon perintah STATUS ({reply})"
@@ -77,12 +77,12 @@ class OmegaPrinter:
     def check_status(self, ip, port):
         """
         Pengecekan status online printer menggunakan perintah STATUS (Watchdog).
-        Format sukses: STATUS|0,0, STATUS|1,0, atau COMD|... (printer merespons, socket TCP aktif).
+        Format sukses: STATUS|0,0, STATUS|0,1, STATUS|1,0, atau COMD|... (printer merespons, socket TCP aktif).
         Format gagal: STATUS |EER atau timeout / connection error (ERROR_CONN:...).
         Mengembalikan tuple: (is_online: bool, reply: str)
         """
         try:
-            reply = self.send_and_read(ip, port, "STATUS")
+            reply = self.send_and_read(ip, port, "STATUS|0,0")
             if not reply:
                 return False, "NO_REPLY"
             if reply.startswith("ERROR_CONN:"):
@@ -114,8 +114,13 @@ class OmegaPrinter:
 
     def send_and_read(self, ip, port, message):
         """Kirim perintah ke Omega menggunakan persistent socket dengan auto-recovery/reconnect"""
-        # Standardisasi terminasi perintah protokol ASCII Omega MX (wajib CRLF \r\n)
-        if not message.endswith("\r\n"):
+        # Standardisasi terminasi & parameter protokol ASCII Omega MX
+        clean_cmd = message.strip()
+        if clean_cmd == "STATUS":
+            message = "STATUS|0,0\r\n"
+        elif clean_cmd == "CSTATUS":
+            message = "CSTATUS|0,0\r\n"
+        elif not message.endswith("\r\n"):
             if message.endswith("\n"):
                 message = message[:-1] + "\r\n"
             elif message.endswith("\r"):
@@ -130,6 +135,11 @@ class OmegaPrinter:
                 self._flush_input()
                 self.sock.sendall(message.encode('utf-8'))
                 reply = self.sock.recv(1024).decode('utf-8', errors='ignore').strip()
+                if reply and "SERVER CONNECTED" in reply.upper():
+                    try:
+                        reply = self.sock.recv(1024).decode('utf-8', errors='ignore').strip()
+                    except Exception:
+                        pass
                 if reply:
                     return reply
                 # Jika recv kosong, socket telah ditutup oleh server
@@ -145,6 +155,11 @@ class OmegaPrinter:
                     self._flush_input()
                     self.sock.sendall(message.encode('utf-8'))
                     reply = self.sock.recv(1024).decode('utf-8', errors='ignore').strip()
+                    if reply and "SERVER CONNECTED" in reply.upper():
+                        try:
+                            reply = self.sock.recv(1024).decode('utf-8', errors='ignore').strip()
+                        except Exception:
+                            pass
                     return reply if reply else "SENT_NO_REPLY"
                 except Exception as e2:
                     if self.sock:
@@ -155,12 +170,15 @@ class OmegaPrinter:
 
     def get_current_print_count(self, ip, port):
         """Ambil angka current printout (CSTATUS)"""
-        reply = self.send_and_read(ip, port, "CSTATUS")
+        reply = self.send_and_read(ip, port, "CSTATUS|0,0")
         if reply and "CSTATUS|" in reply:
             try:
                 data_part = reply.split("|")[1]          
-                current_count = int(data_part.split(",")[0]) 
-                return current_count
+                parts = data_part.split(",")
+                # Format: CSTATUS|0,239 (di mana 239 adalah total cetak fisik)
+                if len(parts) >= 2 and parts[1].strip().isdigit():
+                    return int(parts[1].strip())
+                return int(parts[0].strip())
             except Exception:
                 pass
         return -1
