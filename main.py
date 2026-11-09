@@ -3325,7 +3325,7 @@ class OmegaBatchApp:
                 except Exception:
                     pass
 
-                self.log_msg(f"-> Data {txt_sku} terkirim ({idx+1}/{self.expected_total_judgments})")
+                self.log_msg(f"-> Data {txt_sku} | Coupon: {txt_qr} | Mat: {txt_mat} terkirim ({idx+1}/{self.expected_total_judgments})")
                 
                 # Simulasi Auto-Scan QC otomatis bila Mode Simulasi & Auto-Scan aktif
                 if self.check_is_simulation() and self.check_is_auto_judge_sim():
