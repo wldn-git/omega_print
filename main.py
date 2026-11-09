@@ -2354,8 +2354,7 @@ class OmegaBatchApp:
             ("O1", "00002", "do1_title", "do1_desc"),
             ("O2", "00003", "do2_title", "do2_desc"),
             ("O3", "00004", "do3_title", "do3_desc"),
-            ("O4", "00005", "do4_title", "do4_desc"),
-            ("O5", "00006", "do5_title", "do5_desc")
+            ("O4", "00005", "do4_title", "do4_desc")
         ]
 
         for code, addr, t_key, d_key in di_data:
@@ -4489,42 +4488,64 @@ class OmegaBatchApp:
         return True
 
     def _sync_conveyor_permissive(self):
-        """Menulis status sinyal izin jalan konveyor (DO 4) ke Modbus Slave atau Server lokal secara asynchronous"""
+        """Menulis status sinyal interlock (DO 1 Fault, DO 2 Pause, DO 3 Good) ke Modbus secara asynchronous"""
         desired = self.evaluate_conveyor_permissive()
-        if desired != getattr(self, '_last_conveyor_permissive', None):
-            self._last_conveyor_permissive = desired
-            if desired:
-                self._conveyor_permissive_start_time = time.time()
-            else:
-                self._conveyor_permissive_start_time = 0
+        self._last_conveyor_permissive = desired
+        if desired:
+            self._conveyor_permissive_start_time = time.time()
+        else:
+            self._conveyor_permissive_start_time = 0
 
-            mode = self.modbus_mode.get() if hasattr(self, 'modbus_mode') else "TCP"
-            slave = self.slave_id.get() if hasattr(self, 'slave_id') else 1
-            is_server = (mode == "TCP" and hasattr(self, 'modbus_role') and self.modbus_role.get().startswith("Server"))
+        mode = self.modbus_mode.get() if hasattr(self, 'modbus_mode') else "TCP"
+        slave = self.slave_id.get() if hasattr(self, 'slave_id') else 1
+        is_server = (mode == "TCP" and hasattr(self, 'modbus_role') and self.modbus_role.get().startswith("Server"))
 
-            def _do_write():
+        is_fault = bool(
+            getattr(self, 'cascade_warning_active', False) or
+            getattr(self, 'consecutive_ng_count', 0) >= 3 or
+            getattr(self, 'modbus_alarm_active', False) or
+            getattr(self, 'interlock_alarm_active', False) or
+            getattr(self, '_conveyor_feedback_alarm_active', False)
+        )
+        is_paused = bool(
+            getattr(self, 'pause_requested', False) or
+            getattr(self, 'is_paused', False) or
+            getattr(self, 'interlock_alarm_active', False) or
+            getattr(self, 'active_sys_status', '') in ('PAUSED', 'DIJEDA', 'ALARM')
+        )
+        is_good = bool(
+            not is_fault and not is_paused and desired
+        )
+
+        def _do_write():
+            try:
+                if is_server:
+                    self.modbus.server_set_coil(1, is_fault)
+                    self.modbus.server_set_coil(2, is_paused)
+                    self.modbus.server_set_coil(3, is_good)
+                elif mode == "TCP":
+                    ip = self.modbus_ip.get().strip()
+                    port = self.modbus_port.get().strip()
+                    self.modbus.write_coil_tcp(ip, port, address=1, value=is_fault, slave_id=slave)
+                    self.modbus.write_coil_tcp(ip, port, address=2, value=is_paused, slave_id=slave)
+                    self.modbus.write_coil_tcp(ip, port, address=3, value=is_good, slave_id=slave)
+                else:
+                    com = self.modbus_com.get().strip()
+                    baud = self.modbus_baud.get().strip()
+                    parity = self.modbus_parity.get().strip()
+                    stopbits = self.modbus_stopbits.get().strip()
+                    databits = self.modbus_databits.get().strip()
+                    self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=1, value=is_fault, slave_id=slave)
+                    self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=2, value=is_paused, slave_id=slave)
+                    self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=3, value=is_good, slave_id=slave)
                 try:
-                    if is_server:
-                        self.modbus.server_set_coil(4, desired)
-                    elif mode == "TCP":
-                        ip = self.modbus_ip.get().strip()
-                        port = self.modbus_port.get().strip()
-                        self.modbus.write_coil_tcp(ip, port, address=4, value=desired, slave_id=slave)
-                    else:
-                        com = self.modbus_com.get().strip()
-                        baud = self.modbus_baud.get().strip()
-                        parity = self.modbus_parity.get().strip()
-                        stopbits = self.modbus_stopbits.get().strip()
-                        databits = self.modbus_databits.get().strip()
-                        self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=4, value=desired, slave_id=slave)
-                    try:
-                        self.log_msg(f"-> [INTERLOCK MODBUS] Sinyal Izin Konveyor (DO 4) diset ke: {'RUN (1)' if desired else 'STOP (0)'}")
-                    except Exception:
-                        pass
-                except Exception as e:
+                    self.log_msg(f"-> [INTERLOCK MODBUS] Sinyal Diperbarui (Fault={int(is_fault)}, Pause={int(is_paused)}, Good={int(is_good)})")
+                except Exception:
                     pass
+            except Exception:
+                pass
 
-            threading.Thread(target=_do_write, daemon=True).start()
+        threading.Thread(target=_do_write, daemon=True).start()
 
     def toggle_io_monitoring(self):
         """Aktifkan/Matikan pemantauan I/O"""
@@ -4618,25 +4639,16 @@ class OmegaBatchApp:
                     if not self.modbus.is_tcp_server_running():
                         self.modbus.start_tcp_server(host='0.0.0.0', port=port)
 
-                    # 1. Update Heartbeat Watchdog (DO 5 - Life-Bit toggle tiap 500ms)
+                    # 1. Update Heartbeat Watchdog (DO 4 - Life-Bit toggle tiap 500ms)
                     now = time.time()
                     if now - getattr(self, '_last_heartbeat_time', 0) >= 0.5:
                         self._last_heartbeat_time = now
                         self._heartbeat_state = not getattr(self, '_heartbeat_state', False)
-                        self.modbus.server_set_coil(5, self._heartbeat_state)
+                        self.modbus.server_set_coil(4, self._heartbeat_state)
+                        self.modbus.server_set_coil(5, self._heartbeat_state) # Kompatibilitas jika ladder PLC masih M105
 
-                    # 2. Sinkronisasi sinyal Conveyor Permissive Run (DO 4)
+                    # 2. Sinkronisasi status sinyal DO 1 (Fault), DO 2 (Pause), DO 3 (Good)
                     desired_perm = self.evaluate_conveyor_permissive()
-                    if desired_perm != getattr(self, '_last_conveyor_permissive', None):
-                        self._last_conveyor_permissive = desired_perm
-                        if desired_perm:
-                            self._conveyor_permissive_start_time = time.time()
-                        else:
-                            self._conveyor_permissive_start_time = 0
-                        self.modbus.server_set_coil(4, desired_perm)
-                        self.log_msg(f"-> [INTERLOCK MODBUS SERVER] Sinyal Izin Konveyor (DO 4) diset ke: {'RUN (1)' if desired_perm else 'STOP (0)'}")
-
-                    # 3. Sinkronisasi status sinyal DO 1 (Fault), DO 2 (Pause), DO 3 (Good)
                     is_fault = bool(
                         getattr(self, 'cascade_warning_active', False) or
                         getattr(self, 'consecutive_ng_count', 0) >= 3 or
@@ -4663,19 +4675,19 @@ class OmegaBatchApp:
                     self.modbus.server_set_coil(2, is_paused)
                     self.modbus.server_set_coil(3, is_good)
 
-                    # 4. Baca DI 0..5 dari coils 10..15 (yang ditulis oleh Haiwell TCPMDW)
+                    # 3. Baca DI 0..5 dari coils 10..15 (yang ditulis oleh Haiwell TCPMDW)
                     success, di_bits, err = self.modbus.server_get_di_coils(start_address=10, count=6)
                     if success:
-                        do_bits = [self.modbus.server_get_coil(i) for i in range(6)]
+                        do_bits = [self.modbus.server_get_coil(i) for i in range(5)]
                     else:
-                        do_bits = [False] * 6
+                        do_bits = [False] * 5
                 elif mode == "TCP":
                     success, di_bits, do_bits, err = self.modbus.read_io_tcp(
-                        ip, port, slave, di_count=6, do_count=6
+                        ip, port, slave, di_count=6, do_count=5
                     )
                 else:
                     success, di_bits, do_bits, err = self.modbus.read_io_rtu(
-                        com, baud, parity, stopbits, databits, slave, di_count=6, do_count=6
+                        com, baud, parity, stopbits, databits, slave, di_count=6, do_count=5
                     )
                     
                 if success:
@@ -4692,39 +4704,24 @@ class OmegaBatchApp:
                     except Exception:
                         pass
 
-                    # Jika dalam mode Client / RTU, kirim DO 1..5 ke remote Slave
+                    # Jika dalam mode Client / RTU, kirim DO 1..4 ke remote Slave
                     if not is_server:
-                        # 1. Heartbeat Watchdog (DO 5 - Life-Bit berkedip tiap 500ms)
+                        # 1. Heartbeat Watchdog (DO 4 - Life-Bit berkedip tiap 500ms)
                         now = time.time()
                         if now - getattr(self, '_last_heartbeat_time', 0) >= 0.5:
                             self._last_heartbeat_time = now
                             self._heartbeat_state = not getattr(self, '_heartbeat_state', False)
                             try:
                                 if mode == "TCP":
+                                    self.modbus.write_coil_tcp(ip, port, address=4, value=self._heartbeat_state, slave_id=slave)
                                     self.modbus.write_coil_tcp(ip, port, address=5, value=self._heartbeat_state, slave_id=slave)
                                 else:
+                                    self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=4, value=self._heartbeat_state, slave_id=slave)
                                     self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=5, value=self._heartbeat_state, slave_id=slave)
                             except Exception:
                                 pass
 
-                        # 2. Sinkronisasi sinyal Conveyor Permissive Run (DO 4)
-                        desired_perm = self.evaluate_conveyor_permissive()
-                        if desired_perm != getattr(self, '_last_conveyor_permissive', None):
-                            self._last_conveyor_permissive = desired_perm
-                            if desired_perm:
-                                self._conveyor_permissive_start_time = time.time()
-                            else:
-                                self._conveyor_permissive_start_time = 0
-                            try:
-                                if mode == "TCP":
-                                    self.modbus.write_coil_tcp(ip, port, address=4, value=desired_perm, slave_id=slave)
-                                else:
-                                    self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=4, value=desired_perm, slave_id=slave)
-                                self.log_msg(f"-> [INTERLOCK MODBUS] Sinyal Izin Konveyor (DO 4) diset ke: {'RUN (1)' if desired_perm else 'STOP (0)'}")
-                            except Exception:
-                                pass
-
-                        # 3. Status Sinyal DO 1 (Fault), DO 2 (Pause), DO 3 (Good)
+                        # 2. Status Sinyal DO 1 (Fault), DO 2 (Pause), DO 3 (Good)
                         if is_fault != getattr(self, '_last_fault_signal', None):
                             self._last_fault_signal = is_fault
                             try:
@@ -4881,8 +4878,7 @@ class OmegaBatchApp:
             "#dc2626", # DO 1: Fault Signal (Merah Tua)
             "#f59e0b", # DO 2: Pause Signal (Amber / Kuning)
             "#10b981", # DO 3: Good Signal (Hijau)
-            "#06b6d4", # DO 4: Conveyor Permissive (Cyan / Biru Kehijauan)
-            "#ffcc00", # DO 5: Heartbeat Server/PC (Kuning Emas)
+            "#ffcc00", # DO 4: Heartbeat Server/PC (Kuning Emas)
         ]
         for i in range(min(len(self.do_leds), len(do_bits))):
             c_on = do_colors[i] if i < len(do_colors) else "#ffcc00"

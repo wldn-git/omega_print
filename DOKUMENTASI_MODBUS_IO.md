@@ -55,11 +55,10 @@ Fungsi Modbus: `01 (Read Coils)` & `05 / 15 (Write Single/Multiple Coils)`
 | Bit | Alamat (0-Based) | Alamat Standar PLC (1-Based) | Register Tampung PLC | Nama Sinyal | Tipe | Deskripsi & Logika Operasi |
 | :---: | :---: | :---: | :---: | :--- | :---: | :--- |
 | **DO 0** | `0` | `00001` | **M100** | **NG Signal** | Pulse | **Aktif saat box NG.** Memicu silinder penendang kardus NG (Pulsa aktif: **0.5s / 500ms**). |
-| **DO 1** | `1` | `00002` | **M101** | **Fault Signal** | Level / Pulse | **Aktif saat 3x cascade NG, atau disconnect hardware.** Menyalakan tower lamp merah & buzzer alarm. |
-| **DO 2** | `2` | `00003` | **M102** | **Pause Signal** | Level | **Aktif saat sistem pause.** Baik karena operator klik pause maupun karena sistem interlock ke pause sistem akibat error. |
-| **DO 3** | `3` | `00004` | **M103** | **Good Signal** | Level | **Aktif saat sistem normal dan qc kardus OK.** Menyalakan tower lamp hijau tanda produksi lancar. |
-| **DO 4** | `4` | `00005` | **M104** | **Conveyor Permissive (Interlock)** | Level | **INTERLOCK UTAMA.** Bernilai `1` jika sistem sehat & boleh jalan. Bernilai `0` jika pause/fault $\rightarrow$ **PLC WAJIB mematikan motor konveyor**. |
-| **DO 5** | `5` | `00006` | **M105** | **Heartbeat Server/PC** | Toggle | **Pulsa Pengawas Hidup PC ke PLC.** Berkedip bergantian `0` $\leftrightarrow$ `1` setiap **500 ms**. Jika berhenti berkedip $> 1.5$ detik $\rightarrow$ **PLC mematikan konveyor**. |
+| **DO 1** | `1` | `00002` | **M101** | **Fault Signal** | Level / Pulse | **Aktif saat 3x cascade NG, atau disconnect hardware.** Mematikan konveyor & menyalakan tower lamp merah / buzzer. |
+| **DO 2** | `2` | `00003` | **M102** | **Pause Signal** | Level | **Aktif saat sistem pause.** Baik karena operator klik pause maupun interlock auto-pause $\rightarrow$ PLC menahan konveyor. |
+| **DO 3** | `3` | `00004` | **M103** | **Good Signal** | Level | **Aktif saat sistem normal dan qc kardus OK.** Menyalakan tower lamp hijau & PLC mengizinkan konveyor jalan normal. |
+| **DO 4** | `4` | `00005` | **M104 ( & M105)** | **Heartbeat Server/PC** | Toggle | **Pulsa Pengawas Hidup PC ke PLC.** Berkedip `0` $\leftrightarrow$ `1` tiap **500 ms**. Jika berhenti berkedip $> 1.5$ detik $\rightarrow$ **PLC mematikan konveyor**. |
 
 ---
 
@@ -176,15 +175,19 @@ Berikut adalah contoh implementasi logika pada PLC (Siemens / Omron / Delta / Sc
 ```
 *(Timer mereset setiap kali ada perubahan transisi `0` $\rightarrow$ `1` atau `1` $\rightarrow$ `0`. Jika tidak ada pulsa selama 1.5 detik, flag `PC_COMM_FAULT` aktif).*
 
-### Rung 2: Kendali Motor Konveyor dengan Interlock Permissive Run
+### Rung 2: Kendali Motor Konveyor dengan Interlock Fault & Pause Signal
 ```text
-  PB_START      PC_PERMISSIVE   PC_COMM_FAULT   E_STOP_OK       MOTOR_RUN
-----| |----+--------| |--------------|/|------------| |------------( Y0 )
+  PB_START      FAULT_PC(M101)   PAUSE_PC(M102)  PC_COMM_FAULT(T0)  E_STOP_OK       MOTOR_RUN
+----| |----+----------|/|--------------|/|--------------|/|------------| |------------( Y0 )
            |
   MOTOR_RUN|
 ----| |----+
 ```
-* **Keterangan:** Motor konveyor (`Y0`) **TIDAK BISA JALAN** kecuali sinyal `PC_PERMISSIVE` (`DO 4`) bernilai `1` dan tidak ada fault komunikasi (`PC_COMM_FAULT = 0`).
+* **Keterangan:** Motor konveyor (`Y0`) otomatis berhenti jika:
+  - Ada **`FAULT_PC`** (`M101 = 1`, misal: 3x cascade NG atau hardware terputus).
+  - Ada **`PAUSE_PC`** (`M102 = 1`, misal: operator klik pause atau interlock software jeda).
+  - Terjadi **`PC_COMM_FAULT`** (`T0 / M200 = 1`, pulsa Heartbeat PC terhenti > 1.5s).
+  - Tombol **`E-Stop`** ditekan / angin drop (`DI 3 = 0`).
 
 ---
 

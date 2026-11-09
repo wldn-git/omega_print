@@ -182,7 +182,7 @@ class TestModbusInterlock(unittest.TestCase):
             self.assertFalse(modbus.is_tcp_server_running())
 
     def test_sync_conveyor_permissive_server_mode(self):
-        """Saat dalam mode Server (Opsi B), sinkronisasi izin konveyor harus memanggil server_set_coil(4, val)"""
+        """Saat dalam mode Server (Opsi B), sinkronisasi interlock harus mengaktifkan Good Signal (DO 3) dan menonaktifkan Pause Signal (DO 2)"""
         self.app.modbus_role.set("Server (Opsi B: PLC TCPMDR/W)")
         self.app.modbus_mode.set("TCP")
         self.app.is_printing = True
@@ -199,9 +199,10 @@ class TestModbusInterlock(unittest.TestCase):
 
         self.app.modbus.server_set_coil = MagicMock()
         self.app._sync_conveyor_permissive()
-        time.sleep(0.1) # Beri waktu worker thread
+        time.sleep(0.15) # Beri waktu worker thread
 
-        self.app.modbus.server_set_coil.assert_called_with(4, True)
+        self.app.modbus.server_set_coil.assert_any_call(3, True)
+        self.app.modbus.server_set_coil.assert_any_call(2, False)
 
 if __name__ == '__main__':
     unittest.main()
