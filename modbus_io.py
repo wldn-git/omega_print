@@ -21,6 +21,12 @@ class ModbusController:
                 self._coil_locks[address] = threading.Lock()
             return self._coil_locks[address]
 
+    def is_coil_pulsing(self, address):
+        """Mengecek apakah coil tertentu sedang dalam proses pengiriman pulsa (locked)"""
+        with self._coil_lock_mutex:
+            lock = self._coil_locks.get(int(address))
+            return lock.locked() if lock else False
+
     def close_all(self):
         """Menutup seluruh koneksi Modbus yang aktif"""
         with self._lock:

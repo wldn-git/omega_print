@@ -2878,6 +2878,7 @@ class OmegaBatchApp:
                 def _on_done():
                     self.printer_connected = success
                     self.update_hardware_indicators()
+                    self._sync_conveyor_permissive()
                     if success:
                         self.log_msg("Test Koneksi Omega MX (Aktual) - Berhasil")
                         threading.Thread(target=self.query_ink_levels, daemon=True).start()
@@ -3409,6 +3410,8 @@ class OmegaBatchApp:
             self.is_listening = bool(self.is_listening1 or self.is_listening2)
             if hasattr(self, 'update_hardware_indicators'):
                 self.update_hardware_indicators()
+            if hasattr(self, '_sync_conveyor_permissive'):
+                self._sync_conveyor_permissive()
 
         if threading.current_thread() is threading.main_thread():
             _update()
@@ -4500,12 +4503,24 @@ class OmegaBatchApp:
         slave = self.slave_id.get() if hasattr(self, 'slave_id') else 1
         is_server = (mode == "TCP" and hasattr(self, 'modbus_role') and self.modbus_role.get().startswith("Server"))
 
+        is_sim = False
+        try:
+            is_sim = bool(self.is_simulation.get())
+        except Exception:
+            is_sim = getattr(self, '_mb_cfg_snapshot', {}).get("is_simulation", False)
+
+        hw_disconnected = (not is_sim) and (
+            not getattr(self, 'printer_connected', False) or
+            not (getattr(self, 'is_listening1', False) or getattr(self, 'is_listening2', False))
+        )
+
         is_fault = bool(
             getattr(self, 'cascade_warning_active', False) or
             getattr(self, 'consecutive_ng_count', 0) >= 3 or
             getattr(self, 'modbus_alarm_active', False) or
             getattr(self, 'interlock_alarm_active', False) or
-            getattr(self, '_conveyor_feedback_alarm_active', False)
+            getattr(self, '_conveyor_feedback_alarm_active', False) or
+            hw_disconnected
         )
         is_paused = bool(
             getattr(self, 'pause_requested', False) or
@@ -4649,12 +4664,24 @@ class OmegaBatchApp:
 
                     # 2. Sinkronisasi status sinyal DO 1 (Fault), DO 2 (Pause), DO 3 (Good)
                     desired_perm = self.evaluate_conveyor_permissive()
+                    is_sim = False
+                    try:
+                        is_sim = bool(self.is_simulation.get())
+                    except Exception:
+                        is_sim = getattr(self, '_mb_cfg_snapshot', {}).get("is_simulation", False)
+
+                    hw_disconnected = (not is_sim) and (
+                        not getattr(self, 'printer_connected', False) or
+                        not (getattr(self, 'is_listening1', False) or getattr(self, 'is_listening2', False))
+                    )
+
                     is_fault = bool(
                         getattr(self, 'cascade_warning_active', False) or
                         getattr(self, 'consecutive_ng_count', 0) >= 3 or
                         getattr(self, 'modbus_alarm_active', False) or
                         getattr(self, 'interlock_alarm_active', False) or
-                        getattr(self, '_conveyor_feedback_alarm_active', False)
+                        getattr(self, '_conveyor_feedback_alarm_active', False) or
+                        hw_disconnected
                     )
                     is_paused = bool(
                         getattr(self, 'pause_requested', False) or
@@ -4666,11 +4693,8 @@ class OmegaBatchApp:
                         not is_fault and not is_paused and desired_perm
                     )
 
-                    if not is_fault and getattr(self, '_prev_server_fault', False):
-                        self.modbus.server_set_coil(1, False)
-                    elif is_fault:
-                        self.modbus.server_set_coil(1, True)
-                    self._prev_server_fault = is_fault
+                    if not self.modbus.is_coil_pulsing(1):
+                        self.modbus.server_set_coil(1, is_fault)
 
                     self.modbus.server_set_coil(2, is_paused)
                     self.modbus.server_set_coil(3, is_good)
