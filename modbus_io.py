@@ -142,7 +142,7 @@ class ModbusController:
                 self.close_all()
                 return False, f"RTU Error: {str(e)}"
 
-    def read_io_tcp(self, ip, port, slave_id=1, di_count=5, do_count=6):
+    def read_io_tcp(self, ip, port, slave_id=1, di_count=6, do_count=6):
         """Membaca bit DI & DO via TCP menggunakan persistent connection (auto-fallback jika slave 4-channel)"""
         with self._lock:
             try:
@@ -171,7 +171,7 @@ class ModbusController:
                 self._tcp_client = None
                 return False, [], [], str(e)
 
-    def read_io_rtu(self, com, baud, parity, stopbits, databits, slave_id=1, di_count=5, do_count=6):
+    def read_io_rtu(self, com, baud, parity, stopbits, databits, slave_id=1, di_count=6, do_count=6):
         """Membaca bit DI & DO via RTU/Serial menggunakan persistent connection (auto-fallback jika slave 4-channel)"""
         with self._lock:
             try:
@@ -327,8 +327,8 @@ class ModbusController:
                 pass
         return False
 
-    def server_get_di_coils(self, start_address=10, count=5):
-        """Membaca status DI 0..4 dari buffer Coils server lokal (Alamat 10..14 yang ditulis TCPMDW PLC)"""
+    def server_get_di_coils(self, start_address=10, count=6):
+        """Membaca status DI 0..5 dari buffer Coils server lokal (Alamat 10..15 yang ditulis TCPMDW PLC)"""
         if self.is_tcp_server_running():
             try:
                 res = self._tcp_server.data_bank.get_coils(int(start_address), number=int(count))

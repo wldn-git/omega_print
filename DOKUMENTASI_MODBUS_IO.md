@@ -73,6 +73,7 @@ Fungsi Modbus: `02 (Read Discrete Inputs)`
 | **DI 2** | `2` | `10003` | **X2 / M2** | **Sensor Pusher** | Pulse | Mendeteksi kardus tepat di bibir silinder penendang rejector. |
 | **DI 3** | `3` | `10004` | **X3 / M3** | **Safety Interlock & Air OK** | Level | **Sirkuit Keselamatan (Normally High / 24V).**<br>Jika tombol E-Stop ditekan atau tekanan angin drop $< 4.5$ Bar $\rightarrow$ bit menjadi `0` $\rightarrow$ **Software otomatis PAUSE batch & mematikan DO 4**. |
 | **DI 4** | `4` | `10005` | **X4 / M4** | **Conveyor Running Feedback** | Level | Auxiliary contact dari inverter/kontaktor motor konveyor (`1` = Motor berputar fisik). Jika `0` saat status RUNNING $\rightarrow$ **Software Auto-PAUSE (Motor Trip)**. |
+| **DI 5** | `5` | `10006` | **X12 / M5** | **Mode Bypass / Manual Panel** | Level | **Selector Switch Fisik di Panel.**<br>`1` = Mode Bypass aktif (Interlock software PC dilepas untuk manual/flushing).<br>`0` = Mode Auto normal (Interlock software PC aktif penuh). |
 
 ---
 

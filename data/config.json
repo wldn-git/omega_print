@@ -19,7 +19,7 @@
     "modbus_parity": "Even",
     "modbus_stopbits": "1",
     "modbus_serial_mode": "RTU",
-    "slave_id": 2,
+    "slave_id": 1,
     "api_enabled": true,
     "api_base_url": "http://127.0.0.1:8000/api/v1",
     "api_key": "",
@@ -30,5 +30,6 @@
     "api_auto_sync_batch": true,
     "api_auto_sync_box": true,
     "history_retention_days": 14,
-    "language": "en"
+    "language": "en",
+    "modbus_role": "Server (Opsi B: PLC TCPMDR/W)"
 }

@@ -2345,7 +2345,8 @@ class OmegaBatchApp:
             ("I1", "10002", "di1_title", "di1_desc"),
             ("I2", "10003", "di2_title", "di2_desc"),
             ("I3", "10004", "di3_title", "di3_desc"),
-            ("I4", "10005", "di4_title", "di4_desc")
+            ("I4", "10005", "di4_title", "di4_desc"),
+            ("I5", "10006", "di5_title", "di5_desc")
         ]
 
         do_data = [
@@ -4599,19 +4600,19 @@ class OmegaBatchApp:
                     self.modbus.server_set_coil(4, desired_perm)
                     self.log_msg(f"-> [INTERLOCK MODBUS SERVER] Sinyal Izin Konveyor (DO 4) diset ke: {'RUN (1)' if desired_perm else 'STOP (0)'}")
 
-                # 3. Baca DI 0..4 dari coils 10..14 (yang ditulis oleh Haiwell TCPMDW)
-                success, di_bits, err = self.modbus.server_get_di_coils(start_address=10, count=5)
+                # 3. Baca DI 0..5 dari coils 10..15 (yang ditulis oleh Haiwell TCPMDW)
+                success, di_bits, err = self.modbus.server_get_di_coils(start_address=10, count=6)
                 if success:
                     do_bits = [self.modbus.server_get_coil(i) for i in range(6)]
                 else:
                     do_bits = [False] * 6
             elif mode == "TCP":
                 success, di_bits, do_bits, err = self.modbus.read_io_tcp(
-                    ip, port, slave, di_count=5, do_count=6
+                    ip, port, slave, di_count=6, do_count=6
                 )
             else:
                 success, di_bits, do_bits, err = self.modbus.read_io_rtu(
-                    com, baud, parity, stopbits, databits, slave, di_count=5, do_count=6
+                    com, baud, parity, stopbits, databits, slave, di_count=6, do_count=6
                 )
                 
             if success:
@@ -4681,8 +4682,21 @@ class OmegaBatchApp:
             time.sleep(0.08) # Polling presisi tinggi untuk deteksi transisi sensor
 
     def _process_di_signals(self, di_bits):
-        """Memproses sinyal digital input (Sensor Scanner, Safety Interlock, Conveyor Feedback, Debounce)"""
-        # 1. Pengecekan Interlock Safety / Tekanan Angin Drop (DI 3)
+        """Memproses sinyal digital input (Sensor Scanner, Safety Interlock, Conveyor Feedback, Bypass Panel, Debounce)"""
+        # 1. Pengecekan Mode Bypass / Manual Panel PLC (DI 5)
+        is_bypass = False
+        if len(di_bits) > 5:
+            is_bypass_active = bool(di_bits[5])
+            prev_bypass = getattr(self, 'panel_bypass_mode', False)
+            if is_bypass_active != prev_bypass:
+                self.panel_bypass_mode = is_bypass_active
+                if is_bypass_active:
+                    self.log_msg("⚠️ [PANEL FISIK PLC] Mode BYPASS / MANUAL AKTIF di panel! Interlock software dilepas.")
+                else:
+                    self.log_msg("-> [PANEL FISIK PLC] Mode AUTO aktif kembali di panel. Interlock software kembali aktif.")
+            is_bypass = self.panel_bypass_mode
+
+        # 2. Pengecekan Interlock Safety / Tekanan Angin Drop (DI 3)
         is_safety_ok = di_bits[3]
         if not is_safety_ok and getattr(self, 'is_printing', False) and not self.is_simulation.get():
             if not getattr(self, 'interlock_alarm_active', False):
@@ -4696,10 +4710,11 @@ class OmegaBatchApp:
             self.log_msg("[INTERLOCK PULIH] Tekanan Angin / E-Stop kembali normal (DI 3 ON).")
             self._sync_conveyor_permissive()
 
-        # 2. Pengecekan Feedback Fisik Motor Konveyor (DI 4)
+        # 3. Pengecekan Feedback Fisik Motor Konveyor (DI 4)
         if len(di_bits) > 4:
             is_conveyor_moving = di_bits[4]
-            if (getattr(self, '_last_conveyor_permissive', False) and 
+            if (not is_bypass and 
+                getattr(self, '_last_conveyor_permissive', False) and 
                 getattr(self, 'is_printing', False) and 
                 not self.is_simulation.get()):
                 perm_time = getattr(self, '_conveyor_permissive_start_time', 0)
@@ -4710,10 +4725,10 @@ class OmegaBatchApp:
                         self.pause_requested = True
                         self._sync_pause_button_ui()
                         self._sync_conveyor_permissive()
-            elif is_conveyor_moving:
+            elif is_conveyor_moving or is_bypass:
                 self._conveyor_feedback_alarm_active = False
 
-        # 3. Deteksi Trailing Edge Sensor Scanner (DI 1: True -> False / "Sudah tidak terdeteksi")
+        # 4. Deteksi Trailing Edge Sensor Scanner (DI 1: True -> False / "Sudah tidak terdeteksi")
         # Menandakan ekor kardus 60 cm baru saja lepas dari area scanner
         curr_scanner_sensor = di_bits[1]
         prev_scanner_sensor = getattr(self, 'last_scanner_sensor_state', False)
@@ -4756,7 +4771,10 @@ class OmegaBatchApp:
         """Mengubah warna kotak LED di GUI berdasarkan status bit"""
         # DI LED (Discrete Inputs)
         for i in range(min(len(self.di_leds), len(di_bits))):
-            color = "#00ff00" if di_bits[i] else "grey" 
+            if i == 5:
+                color = "#f59e0b" if di_bits[i] else "grey" # Amber/Kuning untuk Bypass Mode
+            else:
+                color = "#00ff00" if di_bits[i] else "grey" 
             self.di_leds[i].config(bg=color)
 
         # DO LED (Coils)

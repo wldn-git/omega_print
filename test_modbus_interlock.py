@@ -98,6 +98,23 @@ class TestModbusInterlock(unittest.TestCase):
         self.assertTrue(self.app._conveyor_feedback_alarm_active)
         self.assertTrue(self.app.pause_requested)
 
+    def test_panel_bypass_mode_suppresses_feedback_trip(self):
+        """Saat Selector Switch di posisi BYPASS / MANUAL (DI 5 = True), software tidak memicu alarm feedback trip"""
+        self.app.is_printing = True
+        self.app.pause_requested = False
+        self.app.is_simulation.set(False)
+        self.app._last_conveyor_permissive = True
+        self.app._conveyor_permissive_start_time = time.time() - 3.0
+        self.app.panel_bypass_mode = False
+
+        # DI: [DI0=0, DI1=0, DI2=0, DI3=1, DI4=0 (Motor off), DI5=1 (Bypass Active)]
+        di_bits = [False, False, False, True, False, True]
+        self.app._process_di_signals(di_bits)
+
+        self.assertTrue(self.app.panel_bypass_mode)
+        self.assertFalse(getattr(self.app, '_conveyor_feedback_alarm_active', False))
+        self.assertFalse(self.app.pause_requested)
+
     def test_modbus_controller_padding_fallback(self):
         """Memastikan driver modbus_io mengisi bit default saat slave hanya mengembalikan 4 bit"""
         modbus = ModbusController()
@@ -139,16 +156,16 @@ class TestModbusInterlock(unittest.TestCase):
             self.assertFalse(modbus.server_get_coil(1))
             self.assertTrue(modbus.server_get_coil(4))
 
-            # 2. PLC menulis ke coils 10..14 (DI) via TCP client
+            # 2. PLC menulis ke coils 10..15 (DI 0..5, termasuk Bypass DI 5) via TCP client
             from pyModbusTCP.client import ModbusClient
             c = ModbusClient('127.0.0.1', test_port, auto_open=True, auto_close=True)
-            w_ok = c.write_multiple_coils(10, [True, True, False, True, False])
+            w_ok = c.write_multiple_coils(10, [True, True, False, True, False, True])
             self.assertTrue(w_ok)
 
-            # 3. PC membaca DI 0..4 dari server
-            ok_di, di_bits, err = modbus.server_get_di_coils(start_address=10, count=5)
+            # 3. PC membaca DI 0..5 dari server
+            ok_di, di_bits, err = modbus.server_get_di_coils(start_address=10, count=6)
             self.assertTrue(ok_di)
-            self.assertEqual(di_bits, [True, True, False, True, False])
+            self.assertEqual(di_bits, [True, True, False, True, False, True])
 
             # 4. PC membaca DO yang dibaca PLC
             plc_read_do = c.read_coils(0, 6)
