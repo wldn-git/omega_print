@@ -123,6 +123,69 @@ class TestModbusInterlock(unittest.TestCase):
         self.assertEqual(do_bits[4], False) # Padded bit
         self.assertEqual(do_bits[5], False) # Padded bit
 
+    def test_modbus_server_option_b_operations(self):
+        """Memastikan fungsionalitas Modbus TCP Server (Opsi B) berjalan sempurna: DO coils, DI coils, pulse, dan lifecycle"""
+        modbus = ModbusController()
+        test_port = 15505
+        ok, msg = modbus.start_tcp_server(host='127.0.0.1', port=test_port)
+        self.assertTrue(ok)
+        self.assertTrue(modbus.is_tcp_server_running())
+
+        try:
+            # 1. PC set DO 0..5
+            test_do = [True, False, True, False, True, False]
+            modbus.server_set_do_coils(test_do)
+            self.assertTrue(modbus.server_get_coil(0))
+            self.assertFalse(modbus.server_get_coil(1))
+            self.assertTrue(modbus.server_get_coil(4))
+
+            # 2. PLC menulis ke coils 10..14 (DI) via TCP client
+            from pyModbusTCP.client import ModbusClient
+            c = ModbusClient('127.0.0.1', test_port, auto_open=True, auto_close=True)
+            w_ok = c.write_multiple_coils(10, [True, True, False, True, False])
+            self.assertTrue(w_ok)
+
+            # 3. PC membaca DI 0..4 dari server
+            ok_di, di_bits, err = modbus.server_get_di_coils(start_address=10, count=5)
+            self.assertTrue(ok_di)
+            self.assertEqual(di_bits, [True, True, False, True, False])
+
+            # 4. PC membaca DO yang dibaca PLC
+            plc_read_do = c.read_coils(0, 6)
+            self.assertEqual(plc_read_do, test_do)
+
+            # 5. Test pulse DO 0
+            t = modbus.server_pulse_do(address=0, duration=0.1)
+            time.sleep(0.05)
+            self.assertTrue(modbus.server_get_coil(0))
+            t.join()
+            self.assertFalse(modbus.server_get_coil(0))
+        finally:
+            modbus.stop_tcp_server()
+            self.assertFalse(modbus.is_tcp_server_running())
+
+    def test_sync_conveyor_permissive_server_mode(self):
+        """Saat dalam mode Server (Opsi B), sinkronisasi izin konveyor harus memanggil server_set_coil(4, val)"""
+        self.app.modbus_role.set("Server (Opsi B: PLC TCPMDR/W)")
+        self.app.modbus_mode.set("TCP")
+        self.app.is_printing = True
+        self.app.pause_requested = False
+        self.app.stop_requested = False
+        self.app.interlock_alarm_active = False
+        self.app.modbus_alarm_active = False
+        self.app.cascade_warning_active = False
+        self.app._active_alarm_dialogs = {}
+        self.app.printer_connected = True
+        self.app.is_listening1 = True
+        self.app.is_listening2 = True
+        self.app.is_simulation.set(False)
+
+        self.app.modbus.server_set_coil = MagicMock()
+        self.app._sync_conveyor_permissive()
+        time.sleep(0.1) # Beri waktu worker thread
+
+        self.app.modbus.server_set_coil.assert_called_with(4, True)
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -24,6 +24,7 @@ history/checkpoints/
 data/users.json
 
 # OS and IDE specific
+~$*
 .DS_Store
 Thumbs.db
 .vscode/

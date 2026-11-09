@@ -12,6 +12,8 @@ class ModbusController:
         self._rtu_cfg = None
         self._coil_locks = {}
         self._coil_lock_mutex = threading.Lock()
+        self._tcp_server = None
+        self._tcp_server_running = False
 
     def _get_coil_lock(self, address):
         with self._coil_lock_mutex:
@@ -36,6 +38,13 @@ class ModbusController:
                     pass
                 self._rtu_client = None
                 self._rtu_cfg = None
+            if getattr(self, '_tcp_server', None) is not None:
+                try:
+                    self._tcp_server.stop()
+                except Exception:
+                    pass
+                self._tcp_server = None
+                self._tcp_server_running = False
 
     def _get_tcp_client(self, ip, port):
         """Mendapatkan atau menginisiasi koneksi persistent Modbus TCP"""
@@ -248,6 +257,100 @@ class ModbusController:
                 if on_complete:
                     on_complete(ok_on and ok_off, f"Pulse DO {address} selesai.")
 
+        t = threading.Thread(target=_pulse, daemon=True)
+        t.start()
+        return t
+
+    # ==========================================
+    # MODBUS TCP SERVER (OPSI B: PLC TCPMDR/W)
+    # ==========================================
+    def start_tcp_server(self, host='0.0.0.0', port=502):
+        """Menjalankan Modbus TCP Server lokal agar PLC dapat membaca via TCPMDR dan menulis via TCPMDW (Opsi B)"""
+        with self._lock:
+            if getattr(self, '_tcp_server', None) is not None and getattr(self._tcp_server, 'is_run', False):
+                return True, f"Modbus TCP Server sudah berjalan di port {port}"
+            try:
+                from pyModbusTCP.server import ModbusServer
+                self._tcp_server = ModbusServer(host=str(host), port=int(port), no_block=True)
+                self._tcp_server.start()
+                if getattr(self._tcp_server, 'is_run', False):
+                    # Inisialisasi 50 coil: 0-9 untuk DO (PC->PLC), 10-19 untuk DI (PLC->PC)
+                    self._tcp_server.data_bank.set_coils(0, [False] * 50)
+                    self._tcp_server_running = True
+                    return True, f"Modbus TCP Server aktif di port {port}"
+                return False, f"Gagal menjalankan Modbus TCP Server di port {port}"
+            except Exception as e:
+                return False, f"Exception start_tcp_server: {e}"
+
+    def stop_tcp_server(self):
+        """Menghentikan Modbus TCP Server"""
+        with self._lock:
+            if getattr(self, '_tcp_server', None) is not None:
+                try:
+                    self._tcp_server.stop()
+                except Exception:
+                    pass
+                self._tcp_server = None
+                self._tcp_server_running = False
+
+    def is_tcp_server_running(self):
+        return getattr(self, '_tcp_server_running', False) and self._tcp_server is not None and getattr(self._tcp_server, 'is_run', False)
+
+    def server_set_do_coils(self, coils):
+        """Menulis status DO 0..5 ke buffer Coils server lokal (Alamat 0..5 untuk dibaca TCPMDR PLC)"""
+        if self.is_tcp_server_running():
+            try:
+                self._tcp_server.data_bank.set_coils(0, list(coils))
+                return True
+            except Exception:
+                pass
+        return False
+
+    def server_set_coil(self, address, value):
+        """Menulis status satu coil pada buffer server lokal"""
+        if self.is_tcp_server_running():
+            try:
+                self._tcp_server.data_bank.set_coils(int(address), [bool(value)])
+                return True
+            except Exception:
+                pass
+        return False
+
+    def server_get_coil(self, address):
+        """Membaca status satu coil dari buffer server lokal"""
+        if self.is_tcp_server_running():
+            try:
+                res = self._tcp_server.data_bank.get_coils(int(address), number=1)
+                if res:
+                    return bool(res[0])
+            except Exception:
+                pass
+        return False
+
+    def server_get_di_coils(self, start_address=10, count=5):
+        """Membaca status DI 0..4 dari buffer Coils server lokal (Alamat 10..14 yang ditulis TCPMDW PLC)"""
+        if self.is_tcp_server_running():
+            try:
+                res = self._tcp_server.data_bank.get_coils(int(start_address), number=int(count))
+                if res is not None:
+                    return True, list(res), ""
+            except Exception as e:
+                return False, [], str(e)
+        return False, [], "Server tidak aktif"
+
+    def server_pulse_do(self, address=0, duration=0.5, on_complete=None):
+        """Memberikan pulsa aktif ke DO coil server (misal Pusher Solenoid)"""
+        coil_lock = self._get_coil_lock(address)
+        def _pulse():
+            with coil_lock:
+                if self.is_tcp_server_running():
+                    try:
+                        self._tcp_server.data_bank.set_coils(int(address), [True])
+                        time.sleep(duration)
+                        self._tcp_server.data_bank.set_coils(int(address), [False])
+                        if on_complete: on_complete(True, f"Pulse DO {address} server selesai.")
+                    except Exception as e:
+                        if on_complete: on_complete(False, str(e))
         t = threading.Thread(target=_pulse, daemon=True)
         t.start()
         return t
