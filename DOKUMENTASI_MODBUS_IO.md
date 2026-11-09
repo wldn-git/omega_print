@@ -54,12 +54,12 @@ Fungsi Modbus: `01 (Read Coils)` & `05 / 15 (Write Single/Multiple Coils)`
 
 | Bit | Alamat (0-Based) | Alamat Standar PLC (1-Based) | Register Tampung PLC | Nama Sinyal | Tipe | Deskripsi & Logika Operasi |
 | :---: | :---: | :---: | :---: | :--- | :---: | :--- |
-| **DO 0** | `0` | `00001` | **M100** | **Pneumatic Pusher** | Pulse | Menggerakkan silinder penendang kardus NG (Pulsa aktif default: **0.5s / 500ms**). |
-| **DO 1** | `1` | `00002` | **M101** | **Tower Lamp MERAH / Buzzer** | Level / Pulse | Aktif berkedip/bunyi saat terdeteksi hasil NG atau terjadi alarm kritis pada sistem. |
-| **DO 2** | `2` | `00003` | **M102** | **Tower Lamp KUNING** | Level | Indikator mesin dalam status siaga (*Standby*) atau sedang dijeda (*PAUSED*). |
-| **DO 3** | `3` | `00004` | **M103** | **Tower Lamp HIJAU** | Level | Indikator proses produksi berjalan normal (*RUNNING*) dan QC kardus OK. |
-| **DO 4** | `4` | `00005` | **M104** | **Conveyor Permissive Run** | Level | **INTERLOCK UTAMA.** Bernilai `1` jika sistem sehat & batch berjalan. Bernilai `0` jika ada error $\rightarrow$ **PLC WAJIB mematikan motor konveyor**. |
-| **DO 5** | `5` | `00006` | **M105** | **Heartbeat Watchdog (Life-Bit)** | Toggle | Berkedip bergantian `0` $\leftrightarrow$ `1` setiap **500 ms**. Jika berhenti berkedip $> 1.5$ detik $\rightarrow$ **PLC mematikan konveyor**. |
+| **DO 0** | `0` | `00001` | **M100** | **NG Signal** | Pulse | **Aktif saat box NG.** Memicu silinder penendang kardus NG (Pulsa aktif: **0.5s / 500ms**). |
+| **DO 1** | `1` | `00002` | **M101** | **Fault Signal** | Level / Pulse | **Aktif saat 3x cascade NG, atau disconnect hardware.** Menyalakan tower lamp merah & buzzer alarm. |
+| **DO 2** | `2` | `00003` | **M102** | **Pause Signal** | Level | **Aktif saat sistem pause.** Baik karena operator klik pause maupun karena sistem interlock ke pause sistem akibat error. |
+| **DO 3** | `3` | `00004` | **M103** | **Good Signal** | Level | **Aktif saat sistem normal dan qc kardus OK.** Menyalakan tower lamp hijau tanda produksi lancar. |
+| **DO 4** | `4` | `00005` | **M104** | **Conveyor Permissive (Interlock)** | Level | **INTERLOCK UTAMA.** Bernilai `1` jika sistem sehat & boleh jalan. Bernilai `0` jika pause/fault $\rightarrow$ **PLC WAJIB mematikan motor konveyor**. |
+| **DO 5** | `5` | `00006` | **M105** | **Heartbeat Server/PC** | Toggle | **Pulsa Pengawas Hidup PC ke PLC.** Berkedip bergantian `0` $\leftrightarrow$ `1` setiap **500 ms**. Jika berhenti berkedip $> 1.5$ detik $\rightarrow$ **PLC mematikan konveyor**. |
 
 ---
 
@@ -68,12 +68,12 @@ Fungsi Modbus: `02 (Read Discrete Inputs)`
 
 | Bit | Alamat (0-Based) | Alamat Standar PLC (1-Based) | Sumber Register PLC | Nama Sinyal | Tipe | Logika Lapangan & Respon Software |
 | :---: | :---: | :---: | :---: | :--- | :---: | :--- |
-| **DI 0** | `0` | `10001` | **X0 / M0** | **Sensor Head Print** | Pulse | Mendeteksi kardus tiba sebelum memasuki area print head printer. |
-| **DI 1** | `1` | `10002` | **X1 / M1** | **Sensor Scanner** | Falling Edge | **Trailing Edge Sensor.** Saat ekor kardus lepas (`1` $\rightarrow$ `0`):<br>1. Memeriksa hasil scan Keyence (Jika kosong $\rightarrow$ Auto-NG No Read).<br>2. Menghitung tunda gerak (*pusher delay*) menuju silinder rejector. |
-| **DI 2** | `2` | `10003` | **X2 / M2** | **Sensor Pusher** | Pulse | Mendeteksi kardus tepat di bibir silinder penendang rejector. |
-| **DI 3** | `3` | `10004` | **X3 / M3** | **Safety Interlock & Air OK** | Level | **Sirkuit Keselamatan (Normally High / 24V).**<br>Jika tombol E-Stop ditekan atau tekanan angin drop $< 4.5$ Bar $\rightarrow$ bit menjadi `0` $\rightarrow$ **Software otomatis PAUSE batch & mematikan DO 4**. |
-| **DI 4** | `4` | `10005` | **X4 / M4** | **Conveyor Running Feedback** | Level | Auxiliary contact dari inverter/kontaktor motor konveyor (`1` = Motor berputar fisik). Jika `0` saat status RUNNING $\rightarrow$ **Software Auto-PAUSE (Motor Trip)**. |
-| **DI 5** | `5` | `10006` | **X12 / M5** | **Mode Bypass / Manual Panel** | Level | **Selector Switch Fisik di Panel.**<br>`1` = Mode Bypass aktif (Interlock software PC dilepas untuk manual/flushing).<br>`0` = Mode Auto normal (Interlock software PC aktif penuh). |
+| **DI 0** | `0` | `10001` | **X0 / M0** | **Print Head Sensor** | Pulse | **Deteksi box di area printer.** Mendeteksi kedatangan kardus tepat sebelum kepala printer cetak. |
+| **DI 1** | `1` | `10002` | **X1 / M1** | **Scanner Sensor** | Falling Edge | **Deteksi box di area scanner (Trailing Edge Sensor).** Saat ekor kardus lepas (`1` $\rightarrow$ `0`):<br>1. Memeriksa hasil scan Keyence (Jika kosong $\rightarrow$ Auto-NG No Read).<br>2. Menghitung tunda gerak (*pusher delay*) menuju silinder rejector. |
+| **DI 2** | `2` | `10003` | **X2 / M2** | **Pusher Sensor** | Pulse | **Deteksi box yang reject.** Mendeteksi kardus tepat di depan bibir silinder penendang rejector. |
+| **DI 3** | `3` | `10004` | **X3 / M3** | **Emergency** | Level | **Deteksi signal dari emergency button.** Sirkuit keselamatan normally high (24V).<br>`1` = Normal / Release & Angin OK.<br>`0` = E-Stop Tertekan / Angin Drop $\rightarrow$ **Software Auto-PAUSE & matikan izin konveyor**. |
+| **DI 4** | `4` | `10005` | **X4 / M4** | **Conveyor Status** | Level | **Status conveyor running/stop.** Auxiliary contact kontaktor/inverter motor konveyor.<br>`1` = Motor running fisik.<br>`0` = Motor stopped / trip $\rightarrow$ **Software Auto-PAUSE (Motor Trip)**. |
+| **DI 5** | `5` | `10006` | **X12 / M5** | **Bypass / Manual Mode** | Level | **Selector switch.**<br>`1` = Mode Bypass aktif (Interlock software PC dilepas untuk manual/flushing).<br>`0` = Mode Auto normal (Interlock software PC aktif penuh). |
 
 ---
 

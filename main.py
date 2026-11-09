@@ -4192,16 +4192,16 @@ class OmegaBatchApp:
             self.log_msg(f"ERROR saat memicu rejector: {e}")
 
     def manual_test_rejector(self):
-        """Tombol uji coba manual rejector & alarm langsung ke Modbus Slave"""
+        """Tombol uji coba manual NG Signal (DO 0) & Fault Signal (DO 1) langsung ke Modbus"""
         mode = self.modbus_mode.get()
         slave = self.slave_id.get()
         is_server = (mode == "TCP" and hasattr(self, 'modbus_role') and self.modbus_role.get().startswith("Server"))
-        self.log_msg(f"-> [TEST MANUAL] Menguji pulsa Coil Modbus (DO 0 Rejector & DO 1 Alarm) ke mode {mode}{' Server' if is_server else ''}...")
+        self.log_msg(f"-> [TEST MANUAL] Menguji pulsa Coil Modbus (DO 0 NG Signal & DO 1 Fault Signal) ke mode {mode}{' Server' if is_server else ''}...")
 
         # Visual feedback langsung di GUI LED
         if hasattr(self, 'do_leds') and len(self.do_leds) >= 2:
-            self.do_leds[0].config(bg="#ffcc00")
-            self.do_leds[1].config(bg="#ff0000")
+            self.do_leds[0].config(bg="#ef4444")
+            self.do_leds[1].config(bg="#dc2626")
             self.root.after(800, lambda: [
                 self.do_leds[0].config(bg="grey"),
                 self.do_leds[1].config(bg="grey")
@@ -4215,11 +4215,11 @@ class OmegaBatchApp:
                 self.modbus.server_pulse_do(address=0, duration=0.6)
                 self.modbus.server_pulse_do(address=1, duration=0.6)
                 success = True
-                msg = f"Pulsa Coil 0 (Rejector) & Coil 1 (Alarm) diset aktif di Server lokal port {self.modbus_port.get()}!"
+                msg = f"Pulsa Coil 0 (NG Signal) & Coil 1 (Fault Signal) diset aktif di Server lokal port {self.modbus_port.get()}!"
             elif mode == "TCP":
                 ip = self.modbus_ip.get()
                 port = self.modbus_port.get()
-                # Test tulis Coil 0 (Solenoid)
+                # Test tulis Coil 0 (NG Signal)
                 ok0, msg0 = self.modbus.write_coil_tcp(ip, port, address=0, value=True, slave_id=slave)
                 ok1, msg1 = self.modbus.write_coil_tcp(ip, port, address=1, value=True, slave_id=slave)
                 
@@ -4231,7 +4231,7 @@ class OmegaBatchApp:
                 threading.Thread(target=_turn_off, daemon=True).start()
                 
                 success = ok0 and ok1
-                msg = msg0 if not ok0 else (msg1 if not ok1 else "Pulsa Coil 0 (Rejector) & Coil 1 (Alarm) berhasil dikirim!")
+                msg = msg0 if not ok0 else (msg1 if not ok1 else "Pulsa Coil 0 (NG Signal) & Coil 1 (Fault Signal) berhasil dikirim!")
             else:
                 com = self.modbus_com.get()
                 baud = self.modbus_baud.get()
@@ -4253,29 +4253,29 @@ class OmegaBatchApp:
             if success:
                 self.log_msg(f"[OK] Uji Modbus DO Berhasil: {msg}")
                 messagebox.showinfo(
-                    "Test Rejector Berhasil",
+                    "Test NG Signal Berhasil",
                     f"{msg}\n\n"
                     "[CATATAN PENTING MODBUS]:\n"
-                    "Status Coil 0 (Pusher) & Coil 1 (Alarm) telah aktif dan siap dibaca oleh PLC via TCPMDR."
+                    "Status Coil 0 (NG Signal) & Coil 1 (Fault Signal) telah aktif dan siap dibaca oleh PLC via TCPMDR."
                 )
             else:
                 self.log_msg(f"[GAGAL] Uji Modbus DO Gagal: {msg}")
-                messagebox.showerror("Test Rejector Gagal", f"Gagal mengirim sinyal ke Modbus:\n{msg}")
+                messagebox.showerror("Test NG Signal Gagal", f"Gagal mengirim sinyal ke Modbus:\n{msg}")
 
         except Exception as e:
             self.log_msg(f"[GAGAL] Kesalahan Uji Rejector: {e}")
             messagebox.showerror("Error", f"Terjadi kesalahan:\n{e}")
 
     def manual_test_alarm(self):
-        """Tombol uji coba manual Tower Lamp Merah / Alarm (DO 1)"""
+        """Tombol uji coba manual Fault Signal (DO 1)"""
         mode = self.modbus_mode.get()
         slave = self.slave_id.get()
         is_server = (mode == "TCP" and hasattr(self, 'modbus_role') and self.modbus_role.get().startswith("Server"))
-        self.log_msg(f"-> [TEST MANUAL] Menguji pulsa Tower Lamp Merah (DO 1 Alarm) ke mode {mode}{' Server' if is_server else ''}...")
+        self.log_msg(f"-> [TEST MANUAL] Menguji pulsa Fault Signal (DO 1) ke mode {mode}{' Server' if is_server else ''}...")
 
         # Visual feedback di GUI
         if hasattr(self, 'do_leds') and len(self.do_leds) >= 2:
-            self.do_leds[1].config(bg="#ff0000")
+            self.do_leds[1].config(bg="#dc2626")
             self.root.after(1000, lambda: self.do_leds[1].config(bg="grey"))
 
         try:
@@ -4293,8 +4293,8 @@ class OmegaBatchApp:
                 databits = self.modbus_databits.get()
                 self.modbus.pulse_coil_rtu(com, baud, parity, stopbits, databits, address=1, duration=1.0, slave_id=slave)
 
-            self.log_msg("[OK] Pulsa Tower Lamp Merah (DO 1) berhasil dikirim (durasi 1.0 detik).")
-            messagebox.showinfo("Test Alarm Lampu", "Sinyal pulsa Tower Lamp Merah / Alarm (DO 1) berhasil dikirim ke Modbus!")
+            self.log_msg("[OK] Pulsa Fault Signal (DO 1) berhasil dikirim (durasi 1.0 detik).")
+            messagebox.showinfo("Test Fault Signal", "Sinyal pulsa Fault Signal (DO 1) berhasil dikirim ke Modbus!")
         except Exception as e:
             self.log_msg(f"[GAGAL] Error uji alarm: {e}")
             messagebox.showerror("Error", f"Gagal mengirim sinyal alarm:\n{e}")
@@ -4577,15 +4577,15 @@ class OmegaBatchApp:
             self._last_conveyor_permissive = False
             try:
                 if is_server:
-                    self.modbus.server_set_coil(4, False)
-                    self.modbus.server_set_coil(5, False)
+                    for c_idx in range(6):
+                        self.modbus.server_set_coil(c_idx, False)
                     self.modbus.stop_tcp_server()
                 elif mode == "TCP":
-                    self.modbus.write_coil_tcp(ip, port, address=4, value=False, slave_id=slave)
-                    self.modbus.write_coil_tcp(ip, port, address=5, value=False, slave_id=slave)
+                    for c_idx in (1, 2, 3, 4, 5):
+                        self.modbus.write_coil_tcp(ip, port, address=c_idx, value=False, slave_id=slave)
                 else:
-                    self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=4, value=False, slave_id=slave)
-                    self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=5, value=False, slave_id=slave)
+                    for c_idx in (1, 2, 3, 4, 5):
+                        self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=c_idx, value=False, slave_id=slave)
             except Exception:
                 pass
             # Tutup koneksi persistent Modbus agar port dilepas
@@ -4636,7 +4636,34 @@ class OmegaBatchApp:
                         self.modbus.server_set_coil(4, desired_perm)
                         self.log_msg(f"-> [INTERLOCK MODBUS SERVER] Sinyal Izin Konveyor (DO 4) diset ke: {'RUN (1)' if desired_perm else 'STOP (0)'}")
 
-                    # 3. Baca DI 0..5 dari coils 10..15 (yang ditulis oleh Haiwell TCPMDW)
+                    # 3. Sinkronisasi status sinyal DO 1 (Fault), DO 2 (Pause), DO 3 (Good)
+                    is_fault = bool(
+                        getattr(self, 'cascade_warning_active', False) or
+                        getattr(self, 'consecutive_ng_count', 0) >= 3 or
+                        getattr(self, 'modbus_alarm_active', False) or
+                        getattr(self, 'interlock_alarm_active', False) or
+                        getattr(self, '_conveyor_feedback_alarm_active', False)
+                    )
+                    is_paused = bool(
+                        getattr(self, 'pause_requested', False) or
+                        getattr(self, 'is_paused', False) or
+                        getattr(self, 'interlock_alarm_active', False) or
+                        getattr(self, 'active_sys_status', '') in ('PAUSED', 'DIJEDA', 'ALARM')
+                    )
+                    is_good = bool(
+                        not is_fault and not is_paused and desired_perm
+                    )
+
+                    if not is_fault and getattr(self, '_prev_server_fault', False):
+                        self.modbus.server_set_coil(1, False)
+                    elif is_fault:
+                        self.modbus.server_set_coil(1, True)
+                    self._prev_server_fault = is_fault
+
+                    self.modbus.server_set_coil(2, is_paused)
+                    self.modbus.server_set_coil(3, is_good)
+
+                    # 4. Baca DI 0..5 dari coils 10..15 (yang ditulis oleh Haiwell TCPMDW)
                     success, di_bits, err = self.modbus.server_get_di_coils(start_address=10, count=6)
                     if success:
                         do_bits = [self.modbus.server_get_coil(i) for i in range(6)]
@@ -4665,7 +4692,7 @@ class OmegaBatchApp:
                     except Exception:
                         pass
 
-                    # Jika dalam mode Client / RTU, kirim DO 4 & DO 5 ke remote Slave
+                    # Jika dalam mode Client / RTU, kirim DO 1..5 ke remote Slave
                     if not is_server:
                         # 1. Heartbeat Watchdog (DO 5 - Life-Bit berkedip tiap 500ms)
                         now = time.time()
@@ -4694,6 +4721,37 @@ class OmegaBatchApp:
                                 else:
                                     self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=4, value=desired_perm, slave_id=slave)
                                 self.log_msg(f"-> [INTERLOCK MODBUS] Sinyal Izin Konveyor (DO 4) diset ke: {'RUN (1)' if desired_perm else 'STOP (0)'}")
+                            except Exception:
+                                pass
+
+                        # 3. Status Sinyal DO 1 (Fault), DO 2 (Pause), DO 3 (Good)
+                        if is_fault != getattr(self, '_last_fault_signal', None):
+                            self._last_fault_signal = is_fault
+                            try:
+                                if mode == "TCP":
+                                    self.modbus.write_coil_tcp(ip, port, address=1, value=is_fault, slave_id=slave)
+                                else:
+                                    self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=1, value=is_fault, slave_id=slave)
+                            except Exception:
+                                pass
+
+                        if is_paused != getattr(self, '_last_pause_signal', None):
+                            self._last_pause_signal = is_paused
+                            try:
+                                if mode == "TCP":
+                                    self.modbus.write_coil_tcp(ip, port, address=2, value=is_paused, slave_id=slave)
+                                else:
+                                    self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=2, value=is_paused, slave_id=slave)
+                            except Exception:
+                                pass
+
+                        if is_good != getattr(self, '_last_good_signal', None):
+                            self._last_good_signal = is_good
+                            try:
+                                if mode == "TCP":
+                                    self.modbus.write_coil_tcp(ip, port, address=3, value=is_good, slave_id=slave)
+                                else:
+                                    self.modbus.write_coil_rtu(com, baud, parity, stopbits, databits, address=3, value=is_good, slave_id=slave)
                             except Exception:
                                 pass
 
@@ -4810,14 +4868,25 @@ class OmegaBatchApp:
         # DI LED (Discrete Inputs)
         for i in range(min(len(self.di_leds), len(di_bits))):
             if i == 5:
-                color = "#f59e0b" if di_bits[i] else "grey" # Amber/Kuning untuk Bypass Mode
+                color = "#f59e0b" if di_bits[i] else "grey" # Amber untuk Bypass Mode
+            elif i == 3: # Emergency
+                color = "#00ff00" if di_bits[i] else "#ef4444" # Hijau jika Aman (NC 24V), Merah jika E-Stop aktif (0)
             else:
                 color = "#00ff00" if di_bits[i] else "grey" 
             self.di_leds[i].config(bg=color)
 
         # DO LED (Coils)
+        do_colors = [
+            "#ef4444", # DO 0: NG Signal (Merah)
+            "#dc2626", # DO 1: Fault Signal (Merah Tua)
+            "#f59e0b", # DO 2: Pause Signal (Amber / Kuning)
+            "#10b981", # DO 3: Good Signal (Hijau)
+            "#06b6d4", # DO 4: Conveyor Permissive (Cyan / Biru Kehijauan)
+            "#ffcc00", # DO 5: Heartbeat Server/PC (Kuning Emas)
+        ]
         for i in range(min(len(self.do_leds), len(do_bits))):
-            color = "#ffcc00" if do_bits[i] else "grey"
+            c_on = do_colors[i] if i < len(do_colors) else "#ffcc00"
+            color = c_on if do_bits[i] else "grey"
             self.do_leds[i].config(bg=color)
     
     # ==================
