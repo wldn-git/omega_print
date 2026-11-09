@@ -4889,11 +4889,14 @@ class OmegaBatchApp:
         # DI LED (Discrete Inputs)
         for i in range(min(len(self.di_leds), len(di_bits))):
             if i == 5:
-                color = "#f59e0b" if di_bits[i] else "grey" # Amber untuk Bypass Mode
-            elif i == 3: # Emergency
-                color = "#00ff00" if di_bits[i] else "#ef4444" # Hijau jika Aman (NC 24V), Merah jika E-Stop aktif (0)
+                # Bypass / Manual Mode: High=Kuning, Low=Abu-abu
+                color = "#f59e0b" if di_bits[i] else "grey"
+            elif i == 3:
+                # Emergency: High=Abu-abu (Standby/Normal), Low=Merah (E-Stop Aktif/Tertekan)
+                color = "grey" if di_bits[i] else "#ef4444"
             else:
-                color = "#00ff00" if di_bits[i] else "grey" 
+                # Sensor & Conveyor Status: High=Hijau, Low=Abu-abu
+                color = "#00ff00" if di_bits[i] else "grey"
             self.di_leds[i].config(bg=color)
 
         # DO LED (Coils)

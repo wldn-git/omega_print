@@ -65,14 +65,14 @@ Fungsi Modbus: `01 (Read Coils)` & `05 / 15 (Write Single/Multiple Coils)`
 ### B. Modbus TCP: Digital Input (DI / Discrete Inputs — Sensor PLC ke PC)
 Fungsi Modbus: `02 (Read Discrete Inputs)`
 
-| Bit | Alamat (0-Based) | Alamat Standar PLC (1-Based) | Sumber Register PLC | Nama Sinyal | Tipe | Logika Lapangan & Respon Software |
-| :---: | :---: | :---: | :---: | :--- | :---: | :--- |
-| **DI 0** | `0` | `10001` | **X0 / M0** | **Print Head Sensor** | Pulse | **Deteksi box di area printer.** Mendeteksi kedatangan kardus tepat sebelum kepala printer cetak. |
-| **DI 1** | `1` | `10002` | **X1 / M1** | **Scanner Sensor** | Falling Edge | **Deteksi box di area scanner (Trailing Edge Sensor).** Saat ekor kardus lepas (`1` $\rightarrow$ `0`):<br>1. Memeriksa hasil scan Keyence (Jika kosong $\rightarrow$ Auto-NG No Read).<br>2. Menghitung tunda gerak (*pusher delay*) menuju silinder rejector. |
-| **DI 2** | `2` | `10003` | **X2 / M2** | **Pusher Sensor** | Pulse | **Deteksi box yang reject.** Mendeteksi kardus tepat di depan bibir silinder penendang rejector. |
-| **DI 3** | `3` | `10004` | **X3 / M3** | **Emergency** | Level | **Deteksi signal dari emergency button.** Sirkuit keselamatan normally high (24V).<br>`1` = Normal / Release & Angin OK.<br>`0` = E-Stop Tertekan / Angin Drop $\rightarrow$ **Software Auto-PAUSE & matikan izin konveyor**. |
-| **DI 4** | `4` | `10005` | **X4 / M4** | **Conveyor Status** | Level | **Status conveyor running/stop.** Auxiliary contact kontaktor/inverter motor konveyor.<br>`1` = Motor running fisik.<br>`0` = Motor stopped / trip $\rightarrow$ **Software Auto-PAUSE (Motor Trip)**. |
-| **DI 5** | `5` | `10006` | **X12 / M5** | **Bypass / Manual Mode** | Level | **Selector switch.**<br>`1` = Mode Bypass aktif (Interlock software PC dilepas untuk manual/flushing).<br>`0` = Mode Auto normal (Interlock software PC aktif penuh). |
+| Bit | Alamat (0-Based) | Alamat Standar PLC (1-Based) | Sumber Register PLC | Nama Sinyal | Tipe | Warna LED GUI (High / Low) | Logika Lapangan & Respon Software |
+| :---: | :---: | :---: | :---: | :--- | :---: | :---: | :--- |
+| **DI 0** | `0` | `10001` | **X0 / M0** | **Print Head Sensor** | Pulse | Hijau / Abu-abu | **Deteksi box di area printer.** Mendeteksi kedatangan kardus tepat sebelum kepala printer cetak. |
+| **DI 1** | `1` | `10002` | **X1 / M1** | **Scanner Sensor** | Falling Edge | Hijau / Abu-abu | **Deteksi box di area scanner (Trailing Edge Sensor).** Saat ekor kardus lepas (`1` $\rightarrow$ `0`):<br>1. Memeriksa hasil scan Keyence (Jika kosong $\rightarrow$ Auto-NG No Read).<br>2. Menghitung tunda gerak (*pusher delay*) menuju silinder rejector. |
+| **DI 2** | `2` | `10003` | **X2 / M2** | **Pusher Sensor** | Pulse | Hijau / Abu-abu | **Deteksi box yang reject.** Mendeteksi kardus tepat di depan bibir silinder penendang rejector. |
+| **DI 3** | `3` | `10004` | **X3 / M3** | **Emergency** | Level | Abu-abu / Merah | **Deteksi signal dari emergency button.** Sirkuit keselamatan normally high (24V).<br>`1` (High = Abu-abu): Normal / Release (Standby).<br>`0` (Low = Merah): E-Stop Tertekan / Bahaya $\rightarrow$ **Software Auto-PAUSE & kirim Fault**. |
+| **DI 4** | `4` | `10005` | **X4 / M4** | **Conveyor Status** | Level | Hijau / Abu-abu | **Status conveyor running/stop.** Auxiliary contact kontaktor/inverter motor konveyor.<br>`1` (High = Hijau): Motor running fisik.<br>`0` (Low = Abu-abu): Motor stopped / trip $\rightarrow$ **Software Auto-PAUSE (Motor Trip)**. |
+| **DI 5** | `5` | `10006` | **X12 / M5** | **Bypass / Manual Mode** | Level | Kuning / Abu-abu | **Selector switch.**<br>`1` (High = Kuning): Mode Bypass aktif (Interlock software PC dilepas).<br>`0` (Low = Abu-abu): Mode Auto normal (Interlock software PC aktif penuh). |
 
 ---
 
